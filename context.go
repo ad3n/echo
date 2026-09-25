@@ -487,25 +487,18 @@ func (c *Context) Validate(i any) error {
 	return c.echo.Validator.Validate(i)
 }
 
-// Render renders a template with data and sends a text/html response with status
-// code. Renderer must be registered using `Echo.Renderer`.
 func (c *Context) Render(code int, name string, data any) (err error) {
 	if c.echo.Renderer == nil {
 		return ErrRendererNotRegistered
 	}
-	// as Renderer.Render can fail, and in that case we need to delay sending status code to the client until
-	// (global) error handler decides the correct status code for the error to be sent to the client, so we need to write
-	//  the rendered template to the buffer first.
-	//
-	// html.Template.ExecuteTemplate() documentations writes:
-	// > If an error occurs executing the template or writing its output,
-	// > execution stops, but partial results may already have been written to
-	// > the output writer.
 
-	buf := new(bytes.Buffer)
+	buf := renderBufPool.Get().(*bytes.Buffer)
+	defer releaseRenderBuffer(buf)
+
 	if err = c.echo.Renderer.Render(c, buf, name, data); err != nil {
 		return
 	}
+
 	return c.HTMLBlob(code, buf.Bytes())
 }
 
