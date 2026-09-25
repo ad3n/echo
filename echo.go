@@ -792,9 +792,8 @@ func (e *Echo) AcquireContext() *Context {
 	return e.contextPool.Get().(*Context)
 }
 
-// ReleaseContext returns the `Context` instance back to the pool.
-// You must call it after `AcquireContext()`.
 func (e *Echo) ReleaseContext(c *Context) {
+	c.Reset(nil, nil)
 	e.contextPool.Put(c)
 }
 
@@ -806,9 +805,12 @@ func (e *Echo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // serveHTTP implements `http.Handler` interface, which serves HTTP requests.
 func (e *Echo) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	c := e.contextPool.Get().(*Context)
-	defer e.contextPool.Put(c)
+	defer e.ReleaseContext(c)
 
-	c.Reset(r, w)
+	c.request = r
+	c.orgResponse.ResponseWriter = w
+	c.orgResponse.Status = http.StatusOK
+	c.logger = e.Logger
 
 	// The global (e.chain) and pre-middleware (e.preChain) chains are compiled once in buildRouterChains and
 	// reused here, so no middleware closures are allocated per request.

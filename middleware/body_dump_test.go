@@ -280,8 +280,7 @@ func TestBodyDump_RequestExceedsLimit(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int(limit), len(requestBodyDumped), "Dumped request should be truncated to limit")
 	assert.Equal(t, strings.Repeat("A", 1024), requestBodyDumped, "Dumped data should match first N bytes")
-	// Handler should receive truncated data (what was dumped)
-	assert.Equal(t, strings.Repeat("A", 1024), rec.Body.String())
+	assert.Equal(t, largeData, rec.Body.String())
 }
 
 func TestBodyDump_RequestAtExactLimit(t *testing.T) {

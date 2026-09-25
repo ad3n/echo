@@ -61,42 +61,42 @@ type randStringScratch struct {
 var randStringScratchPool = sync.Pool{New: func() any { return new(randStringScratch) }}
 
 func randomString(length uint8) string {
+	if length == 0 {
+		return ""
+	}
+
 	reader := randomReaderPool.Get().(*bufio.Reader)
 	defer randomReaderPool.Put(reader)
+
 	sc := randStringScratchPool.Get().(*randStringScratch)
 	defer randStringScratchPool.Put(sc)
 
 	n := int(length)
 	if cap(sc.b) < n {
 		sc.b = make([]byte, n)
-	} else {
-		sc.b = sc.b[:n]
 	}
-	rlen := n + n/4 // perf: avoid read from rand.Reader many times
+
+	sc.b = sc.b[:n]
+	rlen := n + n/4
 	if cap(sc.r) < rlen {
 		sc.r = make([]byte, rlen)
-	} else {
-		sc.r = sc.r[:rlen]
 	}
+
+	sc.r = sc.r[:rlen]
 	b, r := sc.b, sc.r
 	var i uint8 = 0
-
-	// security note:
-	// we can't just simply do b[i]=randomStringCharset[rb%len(randomStringCharset)],
-	// len(len(randomStringCharset)) is 52, and rb is [0, 255], 256 = 52 * 4 + 48.
-	// make the first 48 characters more possibly to be generated then others.
-	// So we have to skip bytes when rb > randomStringMaxByt
 
 	for {
 		_, err := io.ReadFull(reader, r)
 		if err != nil {
 			panic("unexpected error happened when reading from bufio.NewReader(crypto/rand.Reader)")
 		}
+
 		for _, rb := range r {
 			if rb > randomStringMaxByte {
-				// Skip this number to avoid bias.
 				continue
 			}
+
 			b[i] = randomStringCharset[rb%randomStringCharsetLen]
 			i++
 			if i == length {

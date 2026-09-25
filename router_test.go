@@ -2519,29 +2519,29 @@ func TestRouterParam1466(t *testing.T) {
 
 func TestPathValuesSizeOverMultipleRequests(t *testing.T) {
 	e := New()
-	e.GET("/test/:id/:action", handlerFunc) // max params is 2
+	e.GET("/test/:id/:action", handlerFunc)
 
 	req := httptest.NewRequest(http.MethodGet, "/test/1/a", nil)
 	rec := httptest.NewRecorder()
 
 	c := e.AcquireContext()
-	c.Reset(req, rec)
-	assert.Equal(t, 0, len(*c.pathValues)) // fresh context is empty
-	assert.Equal(t, 2, cap(*c.pathValues)) // is set max path params amount
+	defer e.ReleaseContext(c)
 
-	// imitate some (pre)middleware changing/replacing pathparams to smaller size
+	c.Reset(req, rec)
+	assert.Equal(t, 0, len(*c.pathValues))
+	assert.Equal(t, 2, cap(*c.pathValues))
+
 	c.SetPathValues(PathValues{
 		{Name: "id", Value: "1"},
 	})
-	assert.Equal(t, 1, len(*c.pathValues)) // as SetPathValues was provided
-	assert.Equal(t, 2, cap(*c.pathValues)) // SetPathValues did not change that to smaller
+	assert.Equal(t, 1, len(*c.pathValues))
+	assert.Equal(t, 2, cap(*c.pathValues))
 
 	handler := e.router.Route(c)
-	e.ReleaseContext(c)
 
 	assert.NoError(t, handler(c))
-	assert.Equal(t, 2, len(*c.pathValues)) // matched route had 2 path params
-	assert.Equal(t, 2, cap(*c.pathValues)) // was not changed
+	assert.Equal(t, 2, len(*c.pathValues))
+	assert.Equal(t, 2, cap(*c.pathValues))
 	assert.Equal(t, "1", c.Param("id"))
 	assert.Equal(t, "a", c.Param("action"))
 }

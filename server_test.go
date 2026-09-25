@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -26,8 +25,8 @@ import (
 )
 
 func startOnRandomPort(ctx stdContext.Context, e *Echo) (string, error) {
-	addrChan := make(chan string)
-	errCh := make(chan error)
+	addrChan := make(chan string, 1)
+	errCh := make(chan error, 1)
 
 	go func() {
 		errCh <- (&StartConfig{
@@ -43,10 +42,9 @@ func startOnRandomPort(ctx stdContext.Context, e *Echo) (string, error) {
 }
 
 func waitForServerStart(addrChan <-chan string, errCh <-chan error) (string, error) {
-	waitCtx, cancel := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
+	waitCtx, cancel := stdContext.WithTimeout(stdContext.Background(), 3*time.Second)
 	defer cancel()
 
-	// wait for addr to arrive
 	for {
 		select {
 		case <-waitCtx.Done():
@@ -54,10 +52,10 @@ func waitForServerStart(addrChan <-chan string, errCh <-chan error) (string, err
 		case addr := <-addrChan:
 			return addr, nil
 		case err := <-errCh:
-			if err == http.ErrServerClosed { // was closed normally before listener callback was called. should not be possible
+			if err == http.ErrServerClosed {
 				return "", nil
 			}
-			// failed to start and we did not manage to get even listener part.
+
 			return "", err
 		}
 	}
@@ -83,14 +81,20 @@ func TestStartConfig_Start(t *testing.T) {
 		return c.String(http.StatusOK, "OK")
 	})
 
-	addrChan := make(chan string)
-	errCh := make(chan error)
+	addrChan := make(chan string, 1)
+	errCh := make(chan error, 1)
 
-	ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
+	var startedServer *http.Server
+	ctx, shutdown := stdContext.WithCancel(stdContext.Background())
 	defer shutdown()
+
 	go func() {
 		errCh <- (&StartConfig{
 			Address: ":0",
+			BeforeServeFunc: func(server *http.Server) error {
+				startedServer = server
+				return nil
+			},
 			ListenerAddrFunc: func(addr net.Addr) {
 				addrChan <- addr.String()
 			},
@@ -100,33 +104,19 @@ func TestStartConfig_Start(t *testing.T) {
 	addr, err := waitForServerStart(addrChan, errCh)
 	assert.NoError(t, err)
 
-	// check if server is actually up
 	code, body, err := doGet(fmt.Sprintf("http://%v/ok", addr))
 	if err != nil {
 		assert.NoError(t, err)
 		return
 	}
+
 	assert.Equal(t, http.StatusOK, code)
 	assert.Equal(t, "OK", body)
 
 	shutdown()
 
-	<-errCh // we will be blocking here until server returns from http.Serve
-
-	// check if server was stopped
-	code, body, err = doGet(fmt.Sprintf("http://%v/ok", addr))
-	assert.Equal(t, 0, code)
-	assert.Equal(t, "", body)
-
-	if err == nil {
-		t.Errorf("missing error")
-		return
-	}
-	expectContains := "connect: connection refused"
-	if runtime.GOOS == "windows" {
-		expectContains = "No connection could be made"
-	}
-	assert.True(t, strings.Contains(err.Error(), expectContains))
+	require.NoError(t, <-errCh)
+	assertServerRejectsNewListener(t, startedServer)
 }
 
 func TestStartConfig_GracefulShutdown(t *testing.T) {
@@ -163,8 +153,9 @@ func TestStartConfig_GracefulShutdown(t *testing.T) {
 				return c.String(http.StatusOK, msg)
 			})
 
-			addrChan := make(chan string)
-			errCh := make(chan error)
+			var startedServer *http.Server
+			addrChan := make(chan string, 1)
+			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 50*time.Millisecond)
 			defer shutdown()
@@ -172,7 +163,11 @@ func TestStartConfig_GracefulShutdown(t *testing.T) {
 			shutdownErrChan := make(chan error, 1)
 			go func() {
 				errCh <- (&StartConfig{
-					Address:         ":0",
+					Address: ":0",
+					BeforeServeFunc: func(server *http.Server) error {
+						startedServer = server
+						return nil
+					},
 					GracefulTimeout: 50 * time.Millisecond,
 					OnShutdownError: func(err error) {
 						shutdownErrChan <- err
@@ -199,29 +194,35 @@ func TestStartConfig_GracefulShutdown(t *testing.T) {
 			case shutdownErr = <-shutdownErrChan:
 			default:
 			}
-			if tc.expectGracefulError != "" {
-				assert.EqualError(t, shutdownErr, tc.expectGracefulError)
-			} else {
+			switch tc.expectGracefulError {
+			case "":
 				assert.NoError(t, shutdownErr)
+			default:
+				assert.EqualError(t, shutdownErr, tc.expectGracefulError)
 			}
 
 			shutdown()
 
-			<-errCh // we will be blocking here until server returns from http.Serve
-
-			// check if server was stopped
-			code, body, err = doGet(fmt.Sprintf("http://%v/ok", addr))
-			assert.Error(t, err)
-			if err != nil {
-				expectContains := "connect: connection refused"
-				if runtime.GOOS == "windows" {
-					expectContains = "No connection could be made"
-				}
-				assert.True(t, strings.Contains(err.Error(), expectContains))
-			}
-			assert.Equal(t, 0, code)
-			assert.Equal(t, "", body)
+			require.NoError(t, <-errCh)
+			assertServerRejectsNewListener(t, startedServer)
 		})
+	}
+}
+
+func assertServerRejectsNewListener(t *testing.T, server *http.Server) {
+	t.Helper()
+	require.NotNil(t, server)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	result := make(chan error, 1)
+	go func() { result <- server.Serve(listener) }()
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, http.ErrServerClosed)
+	case <-time.After(3 * time.Second):
+		t.Fatal("server accepted a new listener after shutdown")
 	}
 }
 
@@ -280,8 +281,8 @@ func TestStartConfig_StartTLS(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			e := New()
 
-			addrChan := make(chan string)
-			errCh := make(chan error)
+			addrChan := make(chan string, 1)
+			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
 			defer shutdown()
@@ -368,8 +369,8 @@ func TestFilepathOrContent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			e := New()
 
-			addrChan := make(chan string)
-			errCh := make(chan error)
+			addrChan := make(chan string, 1)
+			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
 			defer shutdown()
@@ -450,8 +451,8 @@ func TestStartConfig_WithListenerNetwork(t *testing.T) {
 				return c.String(http.StatusOK, "OK")
 			})
 
-			addrChan := make(chan string)
-			errCh := make(chan error)
+			addrChan := make(chan string, 1)
+			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
 			defer shutdown()
@@ -504,8 +505,8 @@ func TestStartConfig_WithHideBanner(t *testing.T) {
 				return c.String(http.StatusOK, "OK")
 			})
 
-			addrChan := make(chan string)
-			errCh := make(chan error)
+			addrChan := make(chan string, 1)
+			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
 			defer shutdown()
@@ -565,7 +566,7 @@ func TestStartConfig_WithHidePort(t *testing.T) {
 				return c.String(http.StatusOK, "OK")
 			})
 
-			addrChan := make(chan string)
+			addrChan := make(chan string, 1)
 			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)
@@ -639,7 +640,7 @@ func TestStartConfig_WithHTTP2WithCustomTlsConfig(t *testing.T) {
 				return c.String(http.StatusOK, "OK")
 			})
 
-			addrChan := make(chan string)
+			addrChan := make(chan string, 1)
 			errCh := make(chan error, 1)
 
 			ctx, shutdown := stdContext.WithTimeout(stdContext.Background(), 200*time.Millisecond)

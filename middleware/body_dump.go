@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ad3n/echo/v5"
 )
@@ -69,17 +70,19 @@ func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 	return toMiddlewareOrPanic(config)
 }
 
-// ToMiddleware converts BodyDumpConfig to middleware or returns an error for invalid configuration
 func (config BodyDumpConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 	if config.Handler == nil {
 		return nil, errors.New("echo body-dump middleware requires a handler function")
 	}
+
 	if config.Skipper == nil {
 		config.Skipper = DefaultSkipper
 	}
+
 	if config.MaxRequestBytes == 0 {
 		config.MaxRequestBytes = 5 * MB
 	}
+
 	if config.MaxResponseBytes == 0 {
 		config.MaxResponseBytes = 5 * MB
 	}
@@ -91,56 +94,97 @@ func (config BodyDumpConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			}
 
 			reqBuf := bodyDumpBufferPool.Get().(*bytes.Buffer)
+			defer releaseMiddlewareBuffer(&bodyDumpBufferPool, reqBuf)
+
 			reqBuf.Reset()
-			defer bodyDumpBufferPool.Put(reqBuf)
+			req := c.Request()
+			source := req.Body
+			if source == nil {
+				source = http.NoBody
+			}
 
-			var bodyReader io.Reader = c.Request().Body
+			var bodyReader io.Reader = source
 			if config.MaxRequestBytes > 0 {
-				bodyReader = io.LimitReader(c.Request().Body, config.MaxRequestBytes)
-			}
-			_, readErr := io.Copy(reqBuf, bodyReader)
-			if readErr != nil && readErr != io.EOF {
-				return readErr
-			}
-			if config.MaxRequestBytes > 0 {
-				// Drain any remaining body data to prevent connection issues
-				_, _ = io.Copy(io.Discard, c.Request().Body)
-				_ = c.Request().Body.Close()
+				bodyReader = io.LimitReader(source, config.MaxRequestBytes)
 			}
 
-			reqBody := make([]byte, reqBuf.Len())
-			copy(reqBody, reqBuf.Bytes())
-			c.Request().Body = io.NopCloser(bytes.NewReader(reqBody))
+			if _, err := io.Copy(reqBuf, bodyReader); err != nil {
+				return err
+			}
 
-			// response part
+			reqBody := bytes.Clone(reqBuf.Bytes())
+			replay := &replayReadCloser{
+				prefix: reqBody,
+				source: source,
+			}
+			req.Body = replay
+
 			resBuf := bodyDumpBufferPool.Get().(*bytes.Buffer)
-			resBuf.Reset()
-			defer bodyDumpBufferPool.Put(resBuf)
+			defer releaseMiddlewareBuffer(&bodyDumpBufferPool, resBuf)
 
+			resBuf.Reset()
 			var respWriter io.Writer
-			if config.MaxResponseBytes > 0 {
+			switch {
+			case config.MaxResponseBytes > 0:
 				respWriter = &limitedWriter{
 					response: c.Response(),
 					dumpBuf:  resBuf,
 					limit:    config.MaxResponseBytes,
 				}
-			} else {
+			default:
 				respWriter = io.MultiWriter(c.Response(), resBuf)
 			}
+
 			writer := &bodyDumpResponseWriter{
 				Writer:         respWriter,
 				ResponseWriter: c.Response(),
 			}
 			c.SetResponse(writer)
+			defer func() {
+				writer.Writer = writer.ResponseWriter
+				if c.Response() == writer {
+					c.SetResponse(writer.ResponseWriter)
+				}
+			}()
 
 			err := next(c)
+			if !replay.consumed.Load() {
+				reqBody = bytes.Clone(reqBody)
+			}
 
-			// Callback
-			config.Handler(c, reqBody, resBuf.Bytes(), err)
-
+			config.Handler(c, reqBody, bytes.Clone(resBuf.Bytes()), err)
 			return err
 		}
 	}, nil
+}
+
+type replayReadCloser struct {
+	source   io.ReadCloser
+	prefix   []byte
+	offset   int
+	consumed atomic.Bool
+}
+
+func (r *replayReadCloser) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	if r.offset < len(r.prefix) {
+		n := copy(p, r.prefix[r.offset:])
+		r.offset += n
+		if r.offset == len(r.prefix) {
+			r.consumed.Store(true)
+		}
+
+		return n, nil
+	}
+
+	return r.source.Read(p)
+}
+
+func (r *replayReadCloser) Close() error {
+	return r.source.Close()
 }
 
 func (w *bodyDumpResponseWriter) WriteHeader(code int) {

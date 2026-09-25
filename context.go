@@ -58,35 +58,27 @@ const (
 	indexPage           = "index.html"
 )
 
-// Context represents the context of the current HTTP request. It holds request and
-// response objects, path, path parameters, data and registered handler.
 type Context struct {
+	response    http.ResponseWriter
 	request     *http.Request
 	orgResponse *Response
-	response    http.ResponseWriter
 	query       url.Values
-
-	// formParseMaxMemory is used for http.Request.ParseMultipartForm
-	formParseMaxMemory int64
 
 	route      *RouteInfo
 	pathValues *PathValues
 
-	// handler is the route handler resolved during routing. It is invoked by the terminal of the global
-	// middleware chain (see Echo.buildRouterChains) so that the chain can be compiled once and reused.
 	handler HandlerFunc
-
-	// dsw is reused by json() so that each JSON response does not heap-allocate a delayedStatusWriter.
-	// It lives on the pooled Context; &c.dsw is a stable, allocation-free pointer. Only json() may point
-	// the response at &c.dsw, and only via the nested-call guard there — aliasing it to itself (wrapping
-	// &c.dsw around &c.dsw) would make the response writer reference itself.
-	dsw delayedStatusWriter
 
 	store  map[string]any
 	echo   *Echo
 	logger *slog.Logger
 
 	path string
+
+	dsw delayedStatusWriter
+
+	formParseMaxMemory int64
+
 	lock sync.RWMutex
 }
 
@@ -134,26 +126,31 @@ func newContext(r *http.Request, w http.ResponseWriter, e *Echo) *Context {
 	return c
 }
 
-// Reset resets the context after request completes. It must be called along
-// with `Echo#AcquireContext()` and `Echo#ReleaseContext()`.
-// See `Echo#ServeHTTP()`
 func (c *Context) Reset(r *http.Request, w http.ResponseWriter) {
 	c.request = r
 	c.orgResponse.reset(w)
 	c.response = c.orgResponse
 	c.query = nil
-	// clear (rather than nil) keeps the map allocated on the pooled Context so that requests using Set
-	// do not allocate a fresh map each time. clear(nil) is a no-op.
-	clear(c.store)
-	c.logger = c.echo.Logger
+	if len(c.store) > maxPooledContextStoreEntries {
+		c.store = nil
+	}
 
+	clear(c.store)
 	c.route = nil
 	c.handler = nil
 	c.dsw = delayedStatusWriter{}
 	c.path = ""
-	// NOTE: empty by setting length to 0. PathValues has to have capacity of c.echo.contextPathParamAllocSize at all times
+	clear((*c.pathValues)[:cap(*c.pathValues)])
 	*c.pathValues = (*c.pathValues)[:0]
+	if c.echo == nil {
+		c.logger = slog.Default()
+		return
+	}
+
+	c.logger = c.echo.Logger
 }
+
+const maxPooledContextStoreEntries = 256
 
 func (c *Context) writeContentType(value string) {
 	header := c.response.Header()

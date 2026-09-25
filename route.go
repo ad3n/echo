@@ -4,11 +4,11 @@
 package echo
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
+	"strings"
 )
 
 // Route contains information to adding/registering new route with the router.
@@ -78,27 +78,36 @@ func (r RouteInfo) Clone() RouteInfo {
 	}
 }
 
-// Reverse reverses route to URL string by replacing path parameters with given params values.
 func (r RouteInfo) Reverse(pathValues ...any) string {
-	uri := new(bytes.Buffer)
+	var uri strings.Builder
+	uri.Grow(len(r.Path))
 	ln := len(pathValues)
 	n := 0
 	for i, l := 0, len(r.Path); i < l; i++ {
 		hasBackslash := r.Path[i] == '\\'
 		if hasBackslash && i+1 < l && r.Path[i+1] == ':' {
-			i++ // backslash before colon escapes that colon. in that case skip backslash
+			i++
 		}
+
 		if n < ln && (r.Path[i] == anyLabel || (!hasBackslash && r.Path[i] == paramLabel)) {
-			// in case of `*` wildcard or `:` (unescaped colon) param we replace everything till next slash or end of path
 			for ; i < l && r.Path[i] != '/'; i++ {
 			}
-			fmt.Fprintf(uri, "%v", pathValues[n])
+
+			switch value := pathValues[n].(type) {
+			case string:
+				uri.WriteString(value)
+			default:
+				uri.WriteString(fmt.Sprint(value))
+			}
+
 			n++
 		}
+
 		if i < l {
 			uri.WriteByte(r.Path[i])
 		}
 	}
+
 	return uri.String()
 }
 

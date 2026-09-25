@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"bufio"
 	"compress/gzip"
 	"io"
 	"net/http"
@@ -62,15 +63,15 @@ func DecompressWithConfig(config DecompressConfig) echo.MiddlewareFunc {
 	return toMiddlewareOrPanic(config)
 }
 
-// ToMiddleware converts DecompressConfig to middleware or returns an error for invalid configuration
 func (config DecompressConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 	if config.Skipper == nil {
 		config.Skipper = DefaultSkipper
 	}
+
 	if config.GzipDecompressPool == nil {
 		config.GzipDecompressPool = &DefaultGzipDecompressPool{}
 	}
-	// Apply secure default for decompression limit
+
 	if config.MaxDecompressedSize == 0 {
 		config.MaxDecompressedSize = 100 * MB
 	}
@@ -83,7 +84,13 @@ func (config DecompressConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				return next(c)
 			}
 
-			if !isGzipContentEncoding(c.Request().Header.Get(echo.HeaderContentEncoding)) {
+			req := c.Request()
+			if req.Body == nil {
+				req.Body = http.NoBody
+				return next(c)
+			}
+
+			if !isGzipContentEncoding(req.Header.Get(echo.HeaderContentEncoding)) {
 				return next(c)
 			}
 
@@ -93,71 +100,145 @@ func (config DecompressConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				if err, isErr := i.(error); isErr {
 					return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 				}
+
 				return echo.NewHTTPError(http.StatusInternalServerError, "unexpected type from gzip decompression pool")
 			}
-			defer pool.Put(gr)
 
-			b := c.Request().Body
-			defer b.Close()
-
-			if err := gr.Reset(b); err != nil {
-				if err == io.EOF { //ignore if body is empty
+			input := newGzipInput(req.Body)
+			if err := gr.Reset(input); err != nil {
+				releaseGzipReader(&pool, gr, input)
+				if err == io.EOF {
 					return next(c)
 				}
+
 				return err
 			}
 
-			// only Close gzip reader if it was set to a proper gzip source otherwise it will panic on close.
-			defer gr.Close()
-
-			// Apply decompression size limit to prevent zip bombs
-			if config.MaxDecompressedSize > 0 {
-				c.Request().Body = &limitedGzipReader{
-					Reader:    gr,
-					remaining: config.MaxDecompressedSize,
-					limit:     config.MaxDecompressedSize,
-				}
-			} else {
-				// -1 means explicitly unlimited (not recommended)
-				c.Request().Body = gr
+			req.Body = &limitedGzipReader{
+				reader:    gr,
+				input:     input,
+				source:    req.Body,
+				pool:      &pool,
+				remaining: config.MaxDecompressedSize,
+				limited:   config.MaxDecompressedSize > 0,
 			}
-			c.Request().ContentLength = -1
+			req.ContentLength = -1
 
 			return next(c)
 		}
 	}, nil
 }
 
-// isGzipContentEncoding reports whether Content-Encoding is gzip.
-// Content codings are case-insensitive per RFC 9110 §8.4.1.
 func isGzipContentEncoding(v string) bool {
 	return strings.EqualFold(v, GZIPEncoding)
 }
 
-// limitedGzipReader wraps a gzip reader with size limiting to prevent zip bombs
 type limitedGzipReader struct {
-	*gzip.Reader
+	reader    *gzip.Reader
+	input     *gzipInput
+	source    io.ReadCloser
+	pool      *sync.Pool
+	terminal  error
+	closeErr  error
 	remaining int64
-	limit     int64
+	mu        sync.Mutex
+	closeOnce sync.Once
+	limited   bool
 }
 
-func (r *limitedGzipReader) Read(p []byte) (n int, err error) {
-	if r.remaining <= 0 {
-		// Limit exceeded - return 413 error
-		return 0, echo.ErrStatusRequestEntityTooLarge
+func (r *limitedGzipReader) Read(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if len(p) == 0 {
+		return 0, nil
 	}
 
-	// Limit the read to remaining bytes
-	if int64(len(p)) > r.remaining {
+	if r.terminal != nil {
+		return 0, r.terminal
+	}
+
+	if r.limited && r.remaining == 0 {
+		var probe [1]byte
+		n, err := r.reader.Read(probe[:])
+		if n > 0 {
+			err = echo.ErrStatusRequestEntityTooLarge
+		}
+
+		if err != nil {
+			r.finish(err)
+		}
+
+		return 0, err
+	}
+
+	if r.limited && int64(len(p)) > r.remaining {
 		p = p[:r.remaining]
 	}
 
-	n, err = r.Reader.Read(p)
-	r.remaining -= int64(n)
+	n, err := r.reader.Read(p)
+	if r.limited {
+		r.remaining -= int64(n)
+	}
+
+	if err != nil {
+		r.finish(err)
+	}
 
 	return n, err
 }
 
+func (r *limitedGzipReader) finish(err error) {
+	r.terminal = err
+	if r.reader == nil {
+		return
+	}
+
+	_ = r.reader.Close()
+	releaseGzipReader(r.pool, r.reader, r.input)
+	r.reader = nil
+	r.input = nil
+	r.pool = nil
+}
+
 func (r *limitedGzipReader) Close() error {
-	return r.Reader.Close()
+	r.closeOnce.Do(func() {
+		r.closeErr = r.source.Close()
+	})
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.finish(http.ErrBodyReadAfterClose)
+	return r.closeErr
+}
+
+type gzipEOFReader struct{}
+
+func (gzipEOFReader) Read([]byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (gzipEOFReader) ReadByte() (byte, error) {
+	return 0, io.EOF
+}
+
+type gzipInput struct {
+	io.Reader
+	io.ByteReader
+}
+
+func newGzipInput(source io.Reader) *gzipInput {
+	if reader, ok := source.(io.ByteReader); ok {
+		return &gzipInput{Reader: source, ByteReader: reader}
+	}
+
+	buffer := bufio.NewReader(source)
+	return &gzipInput{Reader: buffer, ByteReader: buffer}
+}
+
+func releaseGzipReader(pool *sync.Pool, reader *gzip.Reader, input *gzipInput) {
+	input.Reader = gzipEOFReader{}
+	input.ByteReader = gzipEOFReader{}
+	_ = reader.Reset(gzipEOFReader{})
+	pool.Put(reader)
 }

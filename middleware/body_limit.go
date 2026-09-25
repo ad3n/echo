@@ -6,7 +6,6 @@ package middleware
 import (
 	"io"
 	"net/http"
-	"sync"
 
 	"github.com/ad3n/echo/v5"
 )
@@ -21,8 +20,8 @@ type BodyLimitConfig struct {
 }
 
 type limitedReader struct {
-	BodyLimitConfig
 	reader io.ReadCloser
+	limit  int64
 	read   int64
 }
 
@@ -43,15 +42,9 @@ func BodyLimitWithConfig(config BodyLimitConfig) echo.MiddlewareFunc {
 	return toMiddlewareOrPanic(config)
 }
 
-// ToMiddleware converts BodyLimitConfig to middleware or returns an error for invalid configuration
 func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 	if config.Skipper == nil {
 		config.Skipper = DefaultSkipper
-	}
-	pool := sync.Pool{
-		New: func() any {
-			return &limitedReader{BodyLimitConfig: config}
-		},
 	}
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -59,21 +52,20 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			if config.Skipper(c) {
 				return next(c)
 			}
-			req := c.Request()
 
-			// Based on content length
+			req := c.Request()
 			if req.ContentLength > config.LimitBytes {
 				return echo.ErrStatusRequestEntityTooLarge
 			}
 
-			// Based on content read
-			r, ok := pool.Get().(*limitedReader)
-			if !ok {
-				return echo.NewHTTPError(http.StatusInternalServerError, "invalid pool object")
+			if req.Body == nil {
+				req.Body = http.NoBody
 			}
-			r.Reset(req.Body)
-			defer pool.Put(r)
-			req.Body = r
+
+			req.Body = &limitedReader{
+				reader: req.Body,
+				limit:  config.LimitBytes,
+			}
 
 			return next(c)
 		}
@@ -83,9 +75,10 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 func (r *limitedReader) Read(b []byte) (n int, err error) {
 	n, err = r.reader.Read(b)
 	r.read += int64(n)
-	if r.read > r.LimitBytes {
+	if r.read > r.limit {
 		return n, echo.ErrStatusRequestEntityTooLarge
 	}
+
 	return
 }
 

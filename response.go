@@ -108,12 +108,23 @@ func (r *Response) Unwrap() http.ResponseWriter {
 }
 
 func (r *Response) reset(w http.ResponseWriter) {
-	r.beforeFuncs = nil
-	r.afterFuncs = nil
+	r.beforeFuncs = resetResponseHooks(r.beforeFuncs)
+	r.afterFuncs = resetResponseHooks(r.afterFuncs)
 	r.ResponseWriter = w
 	r.Size = 0
 	r.Status = http.StatusOK
 	r.Committed = false
+}
+
+const maxPooledResponseHooks = 64
+
+func resetResponseHooks(hooks []func()) []func() {
+	if cap(hooks) > maxPooledResponseHooks {
+		return nil
+	}
+
+	clear(hooks[:cap(hooks)])
+	return hooks[:0]
 }
 
 // UnwrapResponse unwraps given ResponseWriter to return contexts original Echo Response. rw has to implement
