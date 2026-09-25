@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // TODO: Handle TLS proxy

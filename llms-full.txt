@@ -2,7 +2,7 @@
 
 > Echo is a high performance, extensible, minimalist Go web framework built on the standard `net/http` library. Echo adds a fast radix-tree router, request binding with pluggable validator, a deep middleware ecosystem, centralized error handling, and template rendering on top of the standard library.
 
-Import path: `github.com/labstack/echo/v5`
+Import path: `github.com/ad3n/echo`
 Go version: 1.25+
 Handler signature: `func(c *echo.Context) error`
 
@@ -343,7 +343,7 @@ echo.NewVirtualHostHandler(vhosts map[string]*Echo) *Echo
 ## echotest package
 
 ```go
-import "github.com/labstack/echo/v5/echotest"
+import "github.com/ad3n/echo/echotest"
 
 echotest.LoadBytes(t *testing.T, name string, opts ...loadBytesOpts) []byte
 echotest.TrimNewlineEnd(bytes []byte) []byte
@@ -366,8 +366,8 @@ import (
     "syscall"
     "time"
 
-    "github.com/labstack/echo/v5"
-    "github.com/labstack/echo/v5/middleware"
+    "github.com/ad3n/echo"
+    "github.com/ad3n/echo/middleware"
 )
 
 func main() {

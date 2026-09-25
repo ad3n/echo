@@ -7,7 +7,7 @@ package echo_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 	"net/http"
 	"net/http/httptest"
 )

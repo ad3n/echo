@@ -12,8 +12,8 @@ Example:
 		"log/slog"
 		"net/http"
 
-		"github.com/labstack/echo/v5"
-		"github.com/labstack/echo/v5/middleware"
+		"github.com/ad3n/echo"
+		"github.com/ad3n/echo/middleware"
 	)
 
 	// Handler
@@ -185,7 +185,6 @@ const (
 	// RouteAny is a special method type that matches any HTTP method in request. Any has lower
 	// priority that other methods that have been registered with Router to that path.
 	RouteAny = "echo_route_any"
-
 )
 
 // Headers

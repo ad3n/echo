@@ -608,7 +608,7 @@ func TestEchoFile(t *testing.T) {
 			givenFile:        "./go.mod",
 			whenPath:         "/",
 			expectCode:       http.StatusOK,
-			expectStartsWith: "module github.com/labstack/echo/v",
+			expectStartsWith: "module github.com/ad3n/echo",
 		},
 		{
 			name:             "nok file does not exist",

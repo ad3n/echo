@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 const (

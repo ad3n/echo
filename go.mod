@@ -1,4 +1,4 @@
-module github.com/labstack/echo/v5
+module github.com/ad3n/echo
 
 go 1.25.0
 

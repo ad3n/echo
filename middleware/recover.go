@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"runtime"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // RecoverConfig defines the config for Recover middleware.

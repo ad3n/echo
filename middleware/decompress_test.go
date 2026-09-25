@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 	"github.com/stretchr/testify/assert"
 )
 

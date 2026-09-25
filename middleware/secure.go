@@ -6,7 +6,7 @@ package middleware
 import (
 	"fmt"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // SecureConfig defines the config for Secure middleware.

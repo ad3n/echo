@@ -6,7 +6,7 @@
 package main
 
 import (
-  "github.com/labstack/echo/v5"
+  "github.com/ad3n/echo"
   "net/http"
   "net/http/httptest"
   "testing"

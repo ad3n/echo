@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // BodyDumpConfig defines the config for BodyDump middleware.

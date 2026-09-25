@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/labstack/echo/v5"
-	"github.com/labstack/echo/v5/echotest"
+	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/echotest"
 	"github.com/stretchr/testify/assert"
 )
 

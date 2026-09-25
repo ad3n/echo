@@ -1,7 +1,7 @@
 [![Latest release](https://img.shields.io/github/v/release/labstack/echo?style=flat-square&label=release&color=00afd1)](https://github.com/labstack/echo/releases)
 [![Last commit](https://img.shields.io/github/last-commit/labstack/echo/master?style=flat-square)](https://github.com/labstack/echo/commits/master)
 [![Sourcegraph](https://sourcegraph.com/github.com/labstack/echo/-/badge.svg?style=flat-square)](https://sourcegraph.com/github.com/labstack/echo?badge)
-[![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/labstack/echo/v5)
+[![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/ad3n/echo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/labstack/echo?style=flat-square)](https://goreportcard.com/report/github.com/labstack/echo)
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/labstack/echo/echo.yml?style=flat-square)](https://github.com/labstack/echo/actions)
 [![Codecov](https://img.shields.io/codecov/c/github/labstack/echo.svg?style=flat-square)](https://codecov.io/gh/labstack/echo)
@@ -62,8 +62,7 @@ See [ROADMAP.md](./ROADMAP.md) for where Echo is heading and the version support
 ### Installation
 
 ```sh
-// go get github.com/labstack/echo/{version}
-go get github.com/labstack/echo/v5
+go get github.com/ad3n/echo
 ```
 
 Latest version of Echo supports last four Go major [releases](https://go.dev/doc/devel/release) and might work with
@@ -75,8 +74,8 @@ older versions.
 package main
 
 import (
-  "github.com/labstack/echo/v5"
-  "github.com/labstack/echo/v5/middleware"
+  "github.com/ad3n/echo"
+  "github.com/ad3n/echo/middleware"
   "log/slog"
   "net/http"
 )

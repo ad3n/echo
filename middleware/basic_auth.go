@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // BasicAuthConfig defines the config for BasicAuthWithConfig middleware.

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 	"golang.org/x/time/rate"
 )
 

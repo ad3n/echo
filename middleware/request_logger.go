@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // Example for `slog` https://pkg.go.dev/log/slog

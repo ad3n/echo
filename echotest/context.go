@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // ContextConfig is configuration for creating echo.Context for testing purposes.

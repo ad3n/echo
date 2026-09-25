@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // DecompressConfig defines the config for Decompress middleware.
@@ -127,7 +127,6 @@ func (config DecompressConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 		}
 	}, nil
 }
-
 
 // isGzipContentEncoding reports whether Content-Encoding is gzip.
 // Content codings are case-insensitive per RFC 9110 §8.4.1.

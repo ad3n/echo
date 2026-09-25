@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // AddTrailingSlashConfig is the middleware config for adding trailing slash to the request.

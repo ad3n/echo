@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // BodyLimitConfig defines the config for BodyLimitWithConfig middleware.

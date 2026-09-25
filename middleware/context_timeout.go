@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // ContextTimeoutConfig defines the config for ContextTimeout middleware.

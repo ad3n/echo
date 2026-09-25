@@ -8,7 +8,7 @@ import (
 	"maps"
 	"regexp"
 
-	"github.com/labstack/echo/v5"
+	"github.com/ad3n/echo"
 )
 
 // RewriteConfig defines the config for Rewrite middleware.
