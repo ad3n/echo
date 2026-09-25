@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 func ExampleValueBinder_BindErrors() {

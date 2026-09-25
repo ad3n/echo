@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // CSRFUsingSecFetchSite is a context key for CSRF middleware what is set when the client browser is using Sec-Fetch-Site

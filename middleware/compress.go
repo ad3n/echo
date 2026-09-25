@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 const (

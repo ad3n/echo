@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // BodyLimitConfig defines the config for BodyLimitWithConfig middleware.

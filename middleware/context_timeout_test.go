@@ -6,7 +6,7 @@ package middleware
 import (
 	"context"
 	"errors"
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 	"net/http"
 	"net/http/httptest"
 	"net/url"

@@ -12,8 +12,8 @@ Example:
 		"log/slog"
 		"net/http"
 
-		"github.com/ad3n/echo"
-		"github.com/ad3n/echo/middleware"
+		"github.com/ad3n/echo/v5"
+		"github.com/ad3n/echo/v5/middleware"
 	)
 
 	// Handler

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 	"github.com/stretchr/testify/assert"
 )
 

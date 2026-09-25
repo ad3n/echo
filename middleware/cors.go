@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // CORSConfig defines the config for CORS middleware.

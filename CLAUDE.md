@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## About This Project
 
-Echo is a high performance, minimalist Go web framework. This is the main repository for Echo v5, which is available as a Go module at `github.com/ad3n/echo`.
+Echo is a high performance, minimalist Go web framework. This is the main repository for Echo v5, which is available as a Go module at `github.com/ad3n/echo/v5`.
 
 ## Development Commands
 

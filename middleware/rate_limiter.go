@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 	"golang.org/x/time/rate"
 )
 

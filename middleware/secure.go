@@ -6,7 +6,7 @@ package middleware
 import (
 	"fmt"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // SecureConfig defines the config for Secure middleware.

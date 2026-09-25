@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // ContextTimeoutConfig defines the config for ContextTimeout middleware.

@@ -8,7 +8,7 @@ import (
 	"maps"
 	"regexp"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // RewriteConfig defines the config for Rewrite middleware.

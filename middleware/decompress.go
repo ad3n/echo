@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // DecompressConfig defines the config for Decompress middleware.

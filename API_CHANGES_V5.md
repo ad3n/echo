@@ -535,7 +535,7 @@ Top-level binding functions that work with `*Context`.
 ### 12. **New echotest Package**
 
 ```go
-package echotest // import "github.com/ad3n/echo/echotest"
+package echotest // import "github.com/ad3n/echo/v5/echotest"
 
 func LoadBytes(t *testing.T, name string, opts ...loadBytesOpts) []byte
 func TrimNewlineEnd(bytes []byte) []byte

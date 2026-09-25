@@ -6,7 +6,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // MethodOverrideConfig defines the config for MethodOverride middleware.

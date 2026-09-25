@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ad3n/echo/echotest"
+	"github.com/ad3n/echo/v5/echotest"
 	"github.com/stretchr/testify/assert"
 )
 

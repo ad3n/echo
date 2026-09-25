@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ad3n/echo"
+	"github.com/ad3n/echo/v5"
 )
 
 // ContextConfig is configuration for creating echo.Context for testing purposes.
