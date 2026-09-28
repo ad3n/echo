@@ -496,21 +496,20 @@ func (c *Context) String(code int, s string) (err error) {
 	return c.Blob(code, MIMETextPlainCharsetUTF8, stringToBytes(s))
 }
 
-// isValidJSONPCallback reports whether callback can be used as a JSONP function name: an empty string, a JavaScript
-// identifier or a dot-separated path of identifiers (e.g. `cb`, `jQuery_123`, `ns.handlers.cb`). Only ASCII letters,
-// digits, `_` and `$` are allowed, so the callback cannot inject other JavaScript into the response.
 func isValidJSONPCallback(callback string) bool {
 	if callback == "" {
 		return true
 	}
-	atStart := true // at the start of an identifier
-	for i := 0; i < len(callback); i++ {
+
+	atStart := true
+	for i := range len(callback) {
 		ch := callback[i]
 		switch {
 		case ch == '.':
 			if atStart {
 				return false
 			}
+
 			atStart = true
 		case ch == '_' || ch == '$' || ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z'):
 			atStart = false
@@ -522,6 +521,7 @@ func isValidJSONPCallback(callback string) bool {
 			return false
 		}
 	}
+
 	return !atStart
 }
 

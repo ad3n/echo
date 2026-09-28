@@ -936,18 +936,15 @@ func NewDefaultFS(dir string) fs.FS {
 }
 
 func (fs defaultFS) Open(name string) (fs.File, error) {
-	// fs.FS.Open() already assumes that file names are relative to FS root path and considers name with prefix `/` as invalid
-	// For example `f.Name()` returns file names as absolute paths (e.g. `/tmp/data.csv`) so in case user wants to open
-	// a file with an absolute path we need to remove prefix and then call fs.FS.Open().
-	// not to force users to cut prefix from file name we do it here.
 	if filepath.IsAbs(name) {
-		if strings.HasPrefix(name, fs.prefix) {
-			name = name[len(fs.prefix):]
+		if relative, ok := strings.CutPrefix(name, fs.prefix); ok {
+			name = relative
 			if len(name) > 1 && os.IsPathSeparator(name[0]) {
 				name = name[1:]
 			}
 		}
 	}
+
 	return fs.fs.Open(name)
 }
 

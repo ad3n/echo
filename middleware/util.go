@@ -30,9 +30,9 @@ const (
 )
 
 func matchScheme(domain, pattern string) bool {
-	didx := strings.Index(domain, ":")
-	pidx := strings.Index(pattern, ":")
-	return didx != -1 && pidx != -1 && domain[:didx] == pattern[:pidx]
+	domainScheme, _, domainHasScheme := strings.Cut(domain, ":")
+	patternScheme, _, patternHasScheme := strings.Cut(pattern, ":")
+	return domainHasScheme && patternHasScheme && domainScheme == patternScheme
 }
 
 func createRandomStringGenerator(length uint8) func() string {
