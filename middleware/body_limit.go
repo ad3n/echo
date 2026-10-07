@@ -4,8 +4,8 @@
 package middleware
 
 import (
+	"errors"
 	"io"
-	"net/http"
 
 	"github.com/ad3n/echo/v5"
 )
@@ -19,10 +19,14 @@ type BodyLimitConfig struct {
 	LimitBytes int64
 }
 
+// limitedReader returns Echo's status-coded 413 error. Unlike
+// http.MaxBytesReader, it does not tell net/http to close the connection
+// after an over-limit read.
 type limitedReader struct {
 	reader io.ReadCloser
 	limit  int64
 	read   int64
+	err    error
 }
 
 // BodyLimit returns a BodyLimit middleware.
@@ -43,6 +47,9 @@ func BodyLimitWithConfig(config BodyLimitConfig) echo.MiddlewareFunc {
 }
 
 func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
+	if config.LimitBytes < 0 {
+		return nil, errors.New("body limit must be non-negative")
+	}
 	if config.Skipper == nil {
 		config.Skipper = DefaultSkipper
 	}
@@ -58,14 +65,9 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				return echo.ErrStatusRequestEntityTooLarge
 			}
 
-			if req.Body == nil {
-				req.Body = http.NoBody
-			}
-
-			req.Body = &limitedReader{
-				reader: req.Body,
-				limit:  config.LimitBytes,
-			}
+			// Keep the wrapper attached to the request for its entire lifetime.
+			// Outer middleware may still use req.Body after next returns.
+			req.Body = &limitedReader{BodyLimitConfig: config, reader: req.Body}
 
 			return next(c)
 		}
@@ -73,20 +75,37 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 }
 
 func (r *limitedReader) Read(b []byte) (n int, err error) {
+	if r.err != nil {
+		return 0, r.err
+	}
+	if len(b) == 0 {
+		return 0, nil
+	}
+	remaining := r.LimitBytes - r.read
+	// If the caller asked for more bytes than are still allowed, cap the
+	// buffer one byte past the limit. That single extra byte is enough to
+	// tell whether the underlying reader holds more data than allowed,
+	// without ever reading more of it than necessary.
+	if int64(len(b))-1 > remaining {
+		b = b[:remaining+1]
+	}
 	n, err = r.reader.Read(b)
-	r.read += int64(n)
-	if r.read > r.limit {
-		return n, echo.ErrStatusRequestEntityTooLarge
+
+	if int64(n) <= remaining {
+		r.read += int64(n)
+		return n, err
 	}
 
-	return
+	// The underlying reader offered more data than the limit allows. Only
+	// hand out the allowed portion and make the error sticky, so callers
+	// that process the n>0 bytes before handling the error (as io.Reader
+	// documents) cannot read any further data on subsequent calls.
+	n = int(remaining)
+	r.read = r.LimitBytes
+	r.err = echo.ErrStatusRequestEntityTooLarge
+	return n, r.err
 }
 
 func (r *limitedReader) Close() error {
 	return r.reader.Close()
-}
-
-func (r *limitedReader) Reset(reader io.ReadCloser) {
-	r.reader = reader
-	r.read = 0
 }
