@@ -3,7 +3,7 @@
 [![Sourcegraph](https://sourcegraph.com/github.com/labstack/echo/-/badge.svg?style=flat-square)](https://sourcegraph.com/github.com/labstack/echo?badge)
 [![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://pkg.go.dev/github.com/ad3n/echo/v5)
 [![Go Report Card](https://goreportcard.com/badge/github.com/labstack/echo?style=flat-square)](https://goreportcard.com/report/github.com/labstack/echo)
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/labstack/echo/echo.yml?style=flat-square)](https://github.com/labstack/echo/actions)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/labstack/echo/ci.yml?style=flat-square)](https://github.com/labstack/echo/actions)
 [![Codecov](https://img.shields.io/codecov/c/github/labstack/echo.svg?style=flat-square)](https://codecov.io/gh/labstack/echo)
 [![Forum](https://img.shields.io/badge/community-forum-00afd1.svg?style=flat-square)](https://github.com/labstack/echo/discussions)
 [![Twitter](https://img.shields.io/badge/twitter-@labstack-55acee.svg?style=flat-square)](https://twitter.com/labstack)
@@ -39,6 +39,13 @@ Help and questions: [Github Discussions](https://github.com/labstack/echo/discus
 
 ## Sponsors
 
+<div>
+  <a href="https://blacksmith.sh" style="display: inline-flex; align-items: center; gap: 10px">
+    <img src="https://github.com/useblacksmith.png?size=56" height="28px" alt="Blacksmith logo"></img>
+  <b>Blacksmith – faster, drop-in GitHub Actions runners</b>
+    </a>
+</div>
+<br/>
 <div>
   <a href="https://encore.dev" style="display: inline-flex; align-items: center; gap: 10px">
     <img src="https://user-images.githubusercontent.com/78424526/214602214-52e0483a-b5fc-4d4c-b03e-0b7b23e012df.svg" height="28px" alt="encore icon"></img>
@@ -118,7 +125,7 @@ Following list of middleware is maintained by Echo team.
 |------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [github.com/labstack/echo-jwt](https://github.com/labstack/echo-jwt)                     | [JWT](https://github.com/golang-jwt/jwt) middleware                                                                                                          | 
 | [github.com/labstack/echo-contrib](https://github.com/labstack/echo-contrib)             | [casbin](https://github.com/casbin/casbin), [gorilla/sessions](https://github.com/gorilla/sessions), [pprof](https://pkg.go.dev/net/http/pprof)) middlewares | 
-| [github.com/labstack/echo-opentelemetry](https://github.com/labstack/echo-opentelemetry) | [OpenTelemetry](https://opentelemetry.io/) middleware for tracing and metrics                                                                                |
+| [github.com/labstack/echo-otel](https://github.com/labstack/echo-otel)                   | [OpenTelemetry](https://opentelemetry.io/) middleware for tracing and metrics                                                                                |
 | [github.com/labstack/echo-prometheus](https://github.com/labstack/echo-prometheus)       | [Prometheus](https://github.com/prometheus/client_golang/) middleware for Echo                                                                               |
 
 # Third-party middleware repositories

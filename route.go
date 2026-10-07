@@ -79,35 +79,30 @@ func (r RouteInfo) Clone() RouteInfo {
 }
 
 func (r RouteInfo) Reverse(pathValues ...any) string {
-	var uri strings.Builder
-	uri.Grow(len(r.Path))
-	ln := len(pathValues)
-	n := 0
-	for i, l := 0, len(r.Path); i < l; i++ {
-		hasBackslash := r.Path[i] == '\\'
-		if hasBackslash && i+1 < l && r.Path[i+1] == ':' {
-			i++
-		}
-
-		if n < ln && (r.Path[i] == anyLabel || (!hasBackslash && r.Path[i] == paramLabel)) {
-			for ; i < l && r.Path[i] != '/'; i++ {
+	uri := new(bytes.Buffer)
+	nextValue := 0
+	walkRoutePath(r.Path, func(part routePathPart) {
+		switch part.kind {
+		case staticKind:
+			uri.WriteString(part.value)
+		case paramKind:
+			if nextValue < len(pathValues) {
+				fmt.Fprint(uri, pathValues[nextValue])
+				nextValue++
+			} else {
+				// placeholder for a missing value. An escaped colon in a param name is written without its backslash.
+				uri.WriteByte(paramLabel)
+				uri.WriteString(strings.ReplaceAll(part.value, `\:`, ":"))
 			}
-
-			switch value := pathValues[n].(type) {
-			case string:
-				uri.WriteString(value)
-			default:
-				uri.WriteString(fmt.Sprint(value))
+		case anyKind:
+			if nextValue < len(pathValues) {
+				fmt.Fprint(uri, pathValues[nextValue])
+				nextValue++
+			} else {
+				uri.WriteString(strings.ReplaceAll(part.value, `\:`, ":"))
 			}
-
-			n++
 		}
-
-		if i < l {
-			uri.WriteByte(r.Path[i])
-		}
-	}
-
+	})
 	return uri.String()
 }
 
