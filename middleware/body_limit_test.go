@@ -101,11 +101,16 @@ func TestBodyLimitAfterDecompressUsesDecodedSize(t *testing.T) {
 func TestBodyLimitReader(t *testing.T) {
 	hw := []byte("Hello, World!")
 
+	config := BodyLimitConfig{
+		Skipper:    DefaultSkipper,
+		LimitBytes: 2,
+	}
 	reader := &limitedReader{
-		limit:  2,
-		reader: io.NopCloser(bytes.NewReader(hw)),
+		BodyLimitConfig: config,
+		reader:          io.NopCloser(bytes.NewReader(hw)),
 	}
 
+	// read all should return ErrStatusRequestEntityTooLarge
 	_, err := io.ReadAll(reader)
 	assert.ErrorIs(t, err, echo.ErrStatusRequestEntityTooLarge)
 

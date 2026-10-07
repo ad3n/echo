@@ -4,6 +4,7 @@
 package echo
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"reflect"
@@ -78,6 +79,7 @@ func (r RouteInfo) Clone() RouteInfo {
 	}
 }
 
+// Reverse reverses route to URL string by replacing path parameters with given params values.
 func (r RouteInfo) Reverse(pathValues ...any) string {
 	uri := new(bytes.Buffer)
 	nextValue := 0

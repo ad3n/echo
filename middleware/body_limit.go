@@ -23,8 +23,8 @@ type BodyLimitConfig struct {
 // http.MaxBytesReader, it does not tell net/http to close the connection
 // after an over-limit read.
 type limitedReader struct {
+	BodyLimitConfig
 	reader io.ReadCloser
-	limit  int64
 	read   int64
 	err    error
 }
@@ -46,6 +46,7 @@ func BodyLimitWithConfig(config BodyLimitConfig) echo.MiddlewareFunc {
 	return toMiddlewareOrPanic(config)
 }
 
+// ToMiddleware converts BodyLimitConfig to middleware or returns an error for invalid configuration
 func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 	if config.LimitBytes < 0 {
 		return nil, errors.New("body limit must be non-negative")
@@ -59,8 +60,9 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			if config.Skipper(c) {
 				return next(c)
 			}
-
 			req := c.Request()
+
+			// Based on content length
 			if req.ContentLength > config.LimitBytes {
 				return echo.ErrStatusRequestEntityTooLarge
 			}
