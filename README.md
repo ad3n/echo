@@ -78,7 +78,7 @@ See [ROADMAP.md](./ROADMAP.md) for where Echo is heading and the version support
 go get github.com/ad3n/echo/v5
 ```
 
-Echo supports the three most recent Go [releases](https://go.dev/doc/devel/release) and may work with older ones.
+This fork requires Go 1.27.3 or newer.
 
 ### Example
 

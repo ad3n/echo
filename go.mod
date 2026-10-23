@@ -1,6 +1,6 @@
 module github.com/ad3n/echo/v5
 
-go 1.25.0
+go 1.27.3
 
 require (
 	github.com/stretchr/testify v1.11.1

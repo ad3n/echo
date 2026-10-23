@@ -27,6 +27,6 @@ benchmark: ## Run benchmarks
 help: ## Display this help screen
 	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-goversion ?= "1.25"
-test_version: ## Run tests inside Docker with given version (defaults to 1.25 oldest supported). Example: make test_version goversion=1.25
+goversion ?= "1.27.3"
+test_version: ## Run tests inside Docker with given version (defaults to 1.27.3). Example: make test_version goversion=1.27.3
 	@docker run --rm -it -v $(shell pwd):/project golang:$(goversion) /bin/sh -c "cd /project && make init check"

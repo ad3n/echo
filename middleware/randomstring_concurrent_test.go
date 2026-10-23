@@ -9,21 +9,21 @@ import (
 	"testing"
 )
 
-// TestRandomStringConcurrent guards the pooled scratch buffers in randomString: concurrent callers
-// must not share/alias a buffer and corrupt each other's output. Run with -race.
 func TestRandomStringConcurrent(t *testing.T) {
 	const goroutines, iterations = 100, 300
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
-	for g := 0; g < goroutines; g++ {
+	for range goroutines {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < iterations; i++ {
+
+			for range iterations {
 				s := randomString(32)
 				if len(s) != 32 {
 					t.Errorf("expected length 32, got %d (%q)", len(s), s)
 					return
 				}
+
 				for _, r := range s {
 					if !strings.ContainsRune(randomStringCharset, r) {
 						t.Errorf("char %q not in charset (%q)", r, s)
@@ -33,5 +33,6 @@ func TestRandomStringConcurrent(t *testing.T) {
 			}
 		}()
 	}
+
 	wg.Wait()
 }

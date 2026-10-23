@@ -19,6 +19,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type (
+	failingReadCloser struct {
+		data     []byte
+		pos      int
+		failAt   int
+		failWith error
+	}
+
+	bodyDumpTrackingReadCloser struct {
+		io.Reader
+		closed bool
+	}
+)
+
 func TestBodyDump(t *testing.T) {
 	e := echo.New()
 	hw := "Hello, World!"
@@ -30,6 +44,7 @@ func TestBodyDump(t *testing.T) {
 		if err != nil {
 			return err
 		}
+
 		return c.String(http.StatusOK, string(body))
 	}
 
@@ -123,7 +138,7 @@ func TestBodyDump_panic(t *testing.T) {
 
 func TestBodyDumpResponseWriter_CanNotFlush(t *testing.T) {
 	bdrw := bodyDumpResponseWriter{
-		ResponseWriter: new(testResponseWriterNoFlushHijack), // this RW does not support flush
+		ResponseWriter: new(testResponseWriterNoFlushHijack),
 	}
 	assert.PanicsWithError(t, "response writer flushing is not supported", func() {
 		bdrw.Flush()
@@ -151,7 +166,7 @@ func TestBodyDumpResponseWriter_CanUnwrap(t *testing.T) {
 func TestBodyDumpResponseWriter_CanHijack(t *testing.T) {
 	trwu := testResponseWriterUnwrapperHijack{testResponseWriterUnwrapper: testResponseWriterUnwrapper{rw: httptest.NewRecorder()}}
 	bdrw := bodyDumpResponseWriter{
-		ResponseWriter: &trwu, // this RW supports hijacking through unwrapping
+		ResponseWriter: &trwu,
 	}
 	_, _, err := bdrw.Hijack()
 	assert.EqualError(t, err, "can hijack")
@@ -160,7 +175,7 @@ func TestBodyDumpResponseWriter_CanHijack(t *testing.T) {
 func TestBodyDumpResponseWriter_CanNotHijack(t *testing.T) {
 	trwu := testResponseWriterUnwrapper{rw: httptest.NewRecorder()}
 	bdrw := bodyDumpResponseWriter{
-		ResponseWriter: &trwu, // this RW supports hijacking through unwrapping
+		ResponseWriter: &trwu,
 	}
 	_, _, err := bdrw.Hijack()
 	assert.EqualError(t, err, "feature not supported")
@@ -169,10 +184,9 @@ func TestBodyDumpResponseWriter_CanNotHijack(t *testing.T) {
 func TestBodyDump_ReadError(t *testing.T) {
 	e := echo.New()
 
-	// Create a reader that fails during read
 	failingReader := &failingReadCloser{
 		data:     []byte("partial data"),
-		failAt:   7, // Fail after 7 bytes
+		failAt:   7,
 		failWith: errors.New("connection reset"),
 	}
 
@@ -181,7 +195,7 @@ func TestBodyDump_ReadError(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	h := func(c *echo.Context) error {
-		// This handler should not be reached if body read fails
+
 		body, _ := io.ReadAll(c.Request().Body)
 		return c.String(http.StatusOK, string(body))
 	}
@@ -193,20 +207,10 @@ func TestBodyDump_ReadError(t *testing.T) {
 
 	err := mw(h)(c)
 
-	// Verify error is propagated
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "connection reset")
 
-	// Verify handler was not executed (callback wouldn't have received data)
 	assert.Empty(t, requestBodyReceived)
-}
-
-// failingReadCloser is a helper type for testing read errors
-type failingReadCloser struct {
-	data     []byte
-	pos      int
-	failAt   int
-	failWith error
 }
 
 func (f *failingReadCloser) Read(p []byte) (n int, err error) {
@@ -245,7 +249,7 @@ func TestBodyDump_RequestWithinLimit(t *testing.T) {
 		Handler: func(c *echo.Context, reqBody, resBody []byte, err error) {
 			requestBodyDumped = string(reqBody)
 		},
-		MaxRequestBytes:  1 * MB, // 1MB limit
+		MaxRequestBytes:  1 * MB,
 		MaxResponseBytes: 1 * MB,
 	}.ToMiddleware()
 	assert.NoError(t, err)
@@ -258,7 +262,7 @@ func TestBodyDump_RequestWithinLimit(t *testing.T) {
 
 func TestBodyDump_RequestExceedsLimit(t *testing.T) {
 	e := echo.New()
-	// Create 2KB of data but limit to 1KB
+
 	largeData := strings.Repeat("A", 2*1024)
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(largeData))
 	rec := httptest.NewRecorder()
@@ -270,7 +274,7 @@ func TestBodyDump_RequestExceedsLimit(t *testing.T) {
 	}
 
 	requestBodyDumped := ""
-	limit := int64(1024) // 1KB limit
+	limit := int64(1024)
 	mw, err := BodyDumpConfig{
 		Handler: func(c *echo.Context, reqBody, resBody []byte, err error) {
 			requestBodyDumped = string(reqBody)
@@ -345,7 +349,7 @@ func TestBodyDump_ResponseWithinLimit(t *testing.T) {
 
 func TestBodyDump_ResponseExceedsLimit(t *testing.T) {
 	e := echo.New()
-	largeResponse := strings.Repeat("X", 2*1024) // 2KB
+	largeResponse := strings.Repeat("X", 2*1024)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -355,7 +359,7 @@ func TestBodyDump_ResponseExceedsLimit(t *testing.T) {
 	}
 
 	responseBodyDumped := ""
-	limit := int64(1024) // 1KB limit
+	limit := int64(1024)
 	mw, err := BodyDumpConfig{
 		Handler: func(c *echo.Context, reqBody, resBody []byte, err error) {
 			responseBodyDumped = string(resBody)
@@ -367,26 +371,27 @@ func TestBodyDump_ResponseExceedsLimit(t *testing.T) {
 
 	err = mw(h)(c)
 	assert.NoError(t, err)
-	// Dump should be truncated
+
 	assert.Equal(t, int(limit), len(responseBodyDumped), "Dumped response should be truncated to limit")
 	assert.Equal(t, strings.Repeat("X", 1024), responseBodyDumped)
-	// Client should still receive full response!
+
 	assert.Equal(t, largeResponse, rec.Body.String(), "Client must receive full response despite dump truncation")
 }
 
 func TestBodyDump_ClientGetsFullResponse(t *testing.T) {
 	e := echo.New()
-	// This is critical - even when dump is limited, client gets everything
-	largeResponse := strings.Repeat("DATA", 500) // 2KB
+
+	largeResponse := strings.Repeat("DATA", 500)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
 	h := func(c *echo.Context) error {
-		// Write response in chunks to test incremental writes
+
 		for range 4 {
 			c.Response().Write([]byte(strings.Repeat("DATA", 125)))
 		}
+
 		return nil
 	}
 
@@ -396,7 +401,7 @@ func TestBodyDump_ClientGetsFullResponse(t *testing.T) {
 			responseBodyDumped = string(resBody)
 		},
 		MaxRequestBytes:  1 * MB,
-		MaxResponseBytes: 512, // Very small limit
+		MaxResponseBytes: 512,
 	}.ToMiddleware()
 	assert.NoError(t, err)
 
@@ -415,7 +420,7 @@ func TestBodyDump_BothLimitsSimultaneous(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	h := func(c *echo.Context) error {
-		io.ReadAll(c.Request().Body) // Consume request
+		io.ReadAll(c.Request().Body)
 		return c.String(http.StatusOK, largeResponse)
 	}
 
@@ -451,7 +456,7 @@ func TestBodyDump_DefaultConfig(t *testing.T) {
 	}
 
 	requestBodyDumped := ""
-	// Use default config which should have 1MB limits
+
 	config := BodyDumpConfig{}
 	config.Handler = func(c *echo.Context, reqBody, resBody []byte, err error) {
 		requestBodyDumped = string(reqBody)
@@ -466,8 +471,8 @@ func TestBodyDump_DefaultConfig(t *testing.T) {
 
 func TestBodyDump_LargeRequestDosPrevention(t *testing.T) {
 	e := echo.New()
-	// Simulate a very large request (10MB) that could cause OOM
-	largeSize := 10 * 1024 * 1024 // 10MB
+
+	largeSize := 10 * 1024 * 1024
 	largeData := strings.Repeat("M", largeSize)
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(largeData))
 	rec := httptest.NewRecorder()
@@ -479,7 +484,7 @@ func TestBodyDump_LargeRequestDosPrevention(t *testing.T) {
 	}
 
 	requestBodyDumped := ""
-	limit := int64(1 * MB) // Only dump 1MB max
+	limit := int64(1 * MB)
 	mw, err := BodyDumpConfig{
 		Handler: func(c *echo.Context, reqBody, resBody []byte, err error) {
 			requestBodyDumped = string(reqBody)
@@ -491,15 +496,15 @@ func TestBodyDump_LargeRequestDosPrevention(t *testing.T) {
 
 	err = mw(h)(c)
 	assert.NoError(t, err)
-	// Verify only 1MB was dumped, not 10MB
+
 	assert.Equal(t, int(limit), len(requestBodyDumped), "Should only dump up to limit, preventing DoS")
 	assert.Less(t, len(requestBodyDumped), largeSize, "Dump should be much smaller than full request")
 }
 
 func TestBodyDump_LargeResponseDosPrevention(t *testing.T) {
 	e := echo.New()
-	// Simulate a very large response (10MB)
-	largeSize := 10 * 1024 * 1024 // 10MB
+
+	largeSize := 10 * 1024 * 1024
 	largeResponse := strings.Repeat("R", largeSize)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -510,7 +515,7 @@ func TestBodyDump_LargeResponseDosPrevention(t *testing.T) {
 	}
 
 	responseBodyDumped := ""
-	limit := int64(1 * MB) // Only dump 1MB max
+	limit := int64(1 * MB)
 	mw, err := BodyDumpConfig{
 		Handler: func(c *echo.Context, reqBody, resBody []byte, err error) {
 			responseBodyDumped = string(resBody)
@@ -522,17 +527,17 @@ func TestBodyDump_LargeResponseDosPrevention(t *testing.T) {
 
 	err = mw(h)(c)
 	assert.NoError(t, err)
-	// Verify only 1MB was dumped, not 10MB
+
 	assert.Equal(t, int(limit), len(responseBodyDumped), "Should only dump up to limit, preventing DoS")
 	assert.Less(t, len(responseBodyDumped), largeSize, "Dump should be much smaller than full response")
-	// Client still gets full response
+
 	assert.Equal(t, largeSize, rec.Body.Len(), "Client must receive full response")
 }
 
 func BenchmarkBodyDump_WithLimit(b *testing.B) {
 	e := echo.New()
-	requestData := strings.Repeat("data", 256)  // 1KB
-	responseData := strings.Repeat("resp", 256) // 1KB
+	requestData := strings.Repeat("data", 256)
+	responseData := strings.Repeat("resp", 256)
 
 	h := func(c *echo.Context) error {
 		io.ReadAll(c.Request().Body)
@@ -541,7 +546,7 @@ func BenchmarkBodyDump_WithLimit(b *testing.B) {
 
 	mw, _ := BodyDumpConfig{
 		Handler: func(c *echo.Context, reqBody, resBody []byte, err error) {
-			// Simulate logging
+
 			_ = len(reqBody) + len(resBody)
 		},
 		MaxRequestBytes:  1 * MB,
@@ -592,6 +597,7 @@ func TestBodyDump_RequestRemainder(t *testing.T) {
 			if readError != nil {
 				reader = io.MultiReader(reader, iotest.ErrReader(readError))
 			}
+
 			body := &bodyDumpTrackingReadCloser{Reader: reader}
 			req := httptest.NewRequest(http.MethodPost, "/", nil)
 			req.Body = body
@@ -617,11 +623,6 @@ func TestBodyDump_RequestRemainder(t *testing.T) {
 			assert.Equal(t, payload[:limit], string(dumped))
 		})
 	}
-}
-
-type bodyDumpTrackingReadCloser struct {
-	io.Reader
-	closed bool
 }
 
 func (r *bodyDumpTrackingReadCloser) Close() error {
@@ -664,15 +665,17 @@ func TestBodyDump_ErrorHandlerRace(t *testing.T) {
 	})
 
 	var wg sync.WaitGroup
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 200; j++ {
+
+			for range 200 {
 				req := httptest.NewRequest(http.MethodPost, "/err", bytes.NewReader(make([]byte, 256)))
 				e.ServeHTTP(httptest.NewRecorder(), req)
 			}
 		}()
 	}
+
 	wg.Wait()
 }

@@ -18,15 +18,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type TestDecompressPoolWithError struct {
+}
+
 func TestDecompress(t *testing.T) {
 	e := echo.New()
 
 	h := Decompress()(func(c *echo.Context) error {
-		c.Response().Write([]byte("test")) // For Content-Type sniffing
+		c.Response().Write([]byte("test"))
 		return nil
 	})
 
-	// Decompress request body
 	body := `{"name": "echo"}`
 	gz, _ := gzipString(body)
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(gz)))
@@ -49,9 +51,8 @@ func TestDecompress_skippedIfNoHeader(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	// Skip if no Content-Encoding header
 	h := Decompress()(func(c *echo.Context) error {
-		c.Response().Write([]byte("test")) // For Content-Type sniffing
+		c.Response().Write([]byte("test"))
 		return nil
 	})
 
@@ -71,7 +72,7 @@ func TestDecompressWithConfig_DefaultConfig_noDecode(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = h(func(c *echo.Context) error {
-		c.Response().Write([]byte("test")) // For Content-Type sniffing
+		c.Response().Write([]byte("test"))
 		return nil
 	})(c)
 	assert.NoError(t, err)
@@ -84,11 +85,10 @@ func TestDecompressWithConfig_DefaultConfig(t *testing.T) {
 	e := echo.New()
 
 	h := Decompress()(func(c *echo.Context) error {
-		c.Response().Write([]byte("test")) // For Content-Type sniffing
+		c.Response().Write([]byte("test"))
 		return nil
 	})
 
-	// Decompress
 	body := `{"name": "echo"}`
 	gz, _ := gzipString(body)
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(gz)))
@@ -179,9 +179,6 @@ func TestDecompressSkipper(t *testing.T) {
 	assert.Equal(t, body, string(reqBody))
 }
 
-type TestDecompressPoolWithError struct {
-}
-
 func (d *TestDecompressPoolWithError) gzipDecompressPool() sync.Pool {
 	return sync.Pool{
 		New: func() any {
@@ -217,7 +214,7 @@ func BenchmarkDecompress(b *testing.B) {
 	gz, _ := gzipString(body)
 
 	h := Decompress()(func(c *echo.Context) error {
-		c.Response().Write([]byte(body)) // For Content-Type sniffing
+		c.Response().Write([]byte(body))
 		return nil
 	})
 
@@ -225,7 +222,7 @@ func BenchmarkDecompress(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		// Decompress
+
 		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(gz))
 		req.Header.Set(echo.HeaderContentEncoding, GZIPEncoding)
 		rec := httptest.NewRecorder()
@@ -252,7 +249,7 @@ func gzipString(body string) ([]byte, error) {
 
 func TestDecompress_WithinLimit(t *testing.T) {
 	e := echo.New()
-	body := strings.Repeat("test data ", 100) // Small payload ~1KB
+	body := strings.Repeat("test data ", 100)
 	gz, _ := gzipString(body)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(gz))
@@ -274,7 +271,7 @@ func TestDecompress_WithinLimit(t *testing.T) {
 
 func TestDecompress_ExceedsLimit(t *testing.T) {
 	e := echo.New()
-	// Create 2KB of data but limit to 1KB
+
 	largeBody := strings.Repeat("A", 2*1024)
 	gz, _ := gzipString(largeBody)
 
@@ -283,7 +280,7 @@ func TestDecompress_ExceedsLimit(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	h, err := DecompressConfig{MaxDecompressedSize: 1024}.ToMiddleware() // 1KB limit
+	h, err := DecompressConfig{MaxDecompressedSize: 1024}.ToMiddleware()
 	assert.NoError(t, err)
 
 	err = h(func(c *echo.Context) error {
@@ -291,7 +288,6 @@ func TestDecompress_ExceedsLimit(t *testing.T) {
 		return readErr
 	})(c)
 
-	// Should return 413 error
 	assert.Error(t, err)
 	he, ok := err.(echo.HTTPStatusCoder)
 	assert.True(t, ok)
@@ -300,7 +296,7 @@ func TestDecompress_ExceedsLimit(t *testing.T) {
 
 func TestDecompress_AtExactLimit(t *testing.T) {
 	e := echo.New()
-	exactBody := strings.Repeat("B", 1024) // Exactly 1KB
+	exactBody := strings.Repeat("B", 1024)
 	gz, _ := gzipString(exactBody)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(gz))
@@ -361,7 +357,7 @@ func TestLimitedGzipReader_ExceededLimitStaysExceeded(t *testing.T) {
 	assert.Equal(t, 1, n)
 	assert.Equal(t, "A", string(buf))
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		n, err = r.Read(buf)
 		assert.Zero(t, n)
 		assert.ErrorIs(t, err, echo.ErrStatusRequestEntityTooLarge)
@@ -370,9 +366,8 @@ func TestLimitedGzipReader_ExceededLimitStaysExceeded(t *testing.T) {
 
 func TestDecompress_ZipBomb(t *testing.T) {
 	e := echo.New()
-	// Create highly compressed data that expands to 2MB
-	// but limit is 1MB
-	largeBody := bytes.Repeat([]byte("A"), 2*1024*1024) // 2MB
+
+	largeBody := bytes.Repeat([]byte("A"), 2*1024*1024)
 	var buf bytes.Buffer
 	gzWriter := gzip.NewWriter(&buf)
 	gzWriter.Write(largeBody)
@@ -391,7 +386,6 @@ func TestDecompress_ZipBomb(t *testing.T) {
 		return readErr
 	})(c)
 
-	// Should return 413 error
 	assert.Error(t, err)
 	he, ok := err.(echo.HTTPStatusCoder)
 	assert.True(t, ok)
@@ -400,7 +394,7 @@ func TestDecompress_ZipBomb(t *testing.T) {
 
 func TestDecompress_UnlimitedExplicit(t *testing.T) {
 	e := echo.New()
-	largeBody := strings.Repeat("X", 10*1024) // 10KB
+	largeBody := strings.Repeat("X", 10*1024)
 	gz, _ := gzipString(largeBody)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(gz))
@@ -408,7 +402,7 @@ func TestDecompress_UnlimitedExplicit(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	h, err := DecompressConfig{MaxDecompressedSize: -1}.ToMiddleware() // Unlimited
+	h, err := DecompressConfig{MaxDecompressedSize: -1}.ToMiddleware()
 	assert.NoError(t, err)
 
 	err = h(func(c *echo.Context) error {
@@ -430,7 +424,6 @@ func TestDecompress_DefaultLimit(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	// Use zero value which should apply 100MB default
 	h, err := DecompressConfig{}.ToMiddleware()
 	assert.NoError(t, err)
 
@@ -445,7 +438,7 @@ func TestDecompress_DefaultLimit(t *testing.T) {
 
 func TestDecompress_SmallCustomLimit(t *testing.T) {
 	e := echo.New()
-	body := strings.Repeat("D", 512) // 512 bytes
+	body := strings.Repeat("D", 512)
 	gz, _ := gzipString(body)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(gz))
@@ -453,7 +446,7 @@ func TestDecompress_SmallCustomLimit(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	h, err := DecompressConfig{MaxDecompressedSize: 1024}.ToMiddleware() // 1KB limit
+	h, err := DecompressConfig{MaxDecompressedSize: 1024}.ToMiddleware()
 	assert.NoError(t, err)
 
 	err = h(func(c *echo.Context) error {
@@ -467,8 +460,8 @@ func TestDecompress_SmallCustomLimit(t *testing.T) {
 
 func TestDecompress_MultipleReads(t *testing.T) {
 	e := echo.New()
-	// Test that limit is enforced across multiple Read() calls
-	largeBody := strings.Repeat("M", 2*1024) // 2KB
+
+	largeBody := strings.Repeat("M", 2*1024)
 	gz, _ := gzipString(largeBody)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(gz))
@@ -476,11 +469,11 @@ func TestDecompress_MultipleReads(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	h, err := DecompressConfig{MaxDecompressedSize: 1024}.ToMiddleware() // 1KB limit
+	h, err := DecompressConfig{MaxDecompressedSize: 1024}.ToMiddleware()
 	assert.NoError(t, err)
 
 	err = h(func(c *echo.Context) error {
-		// Read in small chunks
+
 		buf := make([]byte, 256)
 		total := 0
 		for {
@@ -490,12 +483,12 @@ func TestDecompress_MultipleReads(t *testing.T) {
 				if readErr == io.EOF {
 					return nil
 				}
+
 				return readErr
 			}
 		}
 	})(c)
 
-	// Should return 413 error from cumulative reads
 	assert.Error(t, err)
 	he, ok := err.(echo.HTTPStatusCoder)
 	assert.True(t, ok)
@@ -504,8 +497,8 @@ func TestDecompress_MultipleReads(t *testing.T) {
 
 func TestDecompress_LargePayloadDosPrevention(t *testing.T) {
 	e := echo.New()
-	// Simulate a DoS attack with highly compressed large payload
-	largeSize := 10 * 1024 * 1024 // 10MB decompressed
+
+	largeSize := 10 * 1024 * 1024
 	largeBody := bytes.Repeat([]byte("Z"), largeSize)
 	var buf bytes.Buffer
 	gzWriter := gzip.NewWriter(&buf)
@@ -525,7 +518,6 @@ func TestDecompress_LargePayloadDosPrevention(t *testing.T) {
 		return readErr
 	})(c)
 
-	// Should prevent DoS by returning 413
 	assert.Error(t, err)
 	he, ok := err.(echo.HTTPStatusCoder)
 	assert.True(t, ok)
@@ -534,7 +526,7 @@ func TestDecompress_LargePayloadDosPrevention(t *testing.T) {
 
 func BenchmarkDecompress_WithLimit(b *testing.B) {
 	e := echo.New()
-	body := strings.Repeat("benchmark data ", 1000) // ~15KB
+	body := strings.Repeat("benchmark data ", 1000)
 	gz, _ := gzipString(body)
 
 	h, _ := DecompressConfig{MaxDecompressedSize: 100 * MB}.ToMiddleware()
@@ -573,6 +565,7 @@ func TestDecompressContentEncodingCaseInsensitive(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				return c.String(http.StatusOK, string(b))
 			})
 			assert.NoError(t, h(c))

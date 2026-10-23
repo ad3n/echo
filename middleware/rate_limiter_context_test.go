@@ -13,9 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ctxAwareStore implements both Allow and the optional AllowContext. AllowContext
-// gives the store the request context so it can set response headers (e.g.
-// Retry-After / X-RateLimit-*) — see #2961.
 type ctxAwareStore struct {
 	allowCalled    bool
 	ctxAllowCalled bool
@@ -33,8 +30,6 @@ func (s *ctxAwareStore) AllowContext(c *echo.Context, identifier string) (bool, 
 	return s.allow, nil
 }
 
-// When the store implements AllowContext, the middleware must call it instead of
-// Allow, so the store can set rate-limit headers on the response.
 func TestRateLimiter_storeAllowContextIsPreferred(t *testing.T) {
 	e := echo.New()
 	store := &ctxAwareStore{allow: true}
@@ -54,8 +49,6 @@ func TestRateLimiter_storeAllowContextIsPreferred(t *testing.T) {
 	assert.Equal(t, "42", rec.Header().Get("Retry-After"), "store should be able to set headers via the context")
 }
 
-// The built-in memory store implements AllowContext, so it sets X-RateLimit-Limit /
-// X-RateLimit-Remaining on every request and Retry-After when the limit is hit (#2961).
 func TestRateLimiterMemoryStore_AllowContextSetsHeaders(t *testing.T) {
 	store := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{Rate: 1, Burst: 3})
 	e := echo.New()
@@ -72,8 +65,7 @@ func TestRateLimiterMemoryStore_AllowContextSetsHeaders(t *testing.T) {
 		return rec
 	}
 
-	// Burst of 3: each allowed request advertises the limit and decreasing remaining.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		rec := do()
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, "3", rec.Header().Get(HeaderXRateLimitLimit))
@@ -81,7 +73,6 @@ func TestRateLimiterMemoryStore_AllowContextSetsHeaders(t *testing.T) {
 		assert.Empty(t, rec.Header().Get(echo.HeaderRetryAfter))
 	}
 
-	// 4th request is denied: 429, remaining 0, and a Retry-After hint.
 	rec := do()
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
 	assert.Equal(t, "0", rec.Header().Get(HeaderXRateLimitRemaining))
