@@ -5,6 +5,7 @@ package echo
 
 import (
 	"bytes"
+	stdContext "context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -57,6 +58,10 @@ const (
 	defaultMemory int64 = 32 << 20 // 32 MB
 	indexPage           = "index.html"
 )
+
+type validatorCtx interface {
+	ValidateCtx(ctx stdContext.Context, i any) error
+}
 
 type Context struct {
 	response    http.ResponseWriter
@@ -464,6 +469,19 @@ func (c *Context) Validate(i any) error {
 		return ErrValidatorNotRegistered
 	}
 	return c.echo.Validator.Validate(i)
+}
+
+func (c *Context) ValidateCtx(i any) error {
+	if v, ok := c.echo.Validator.(validatorCtx); ok {
+		ctx := stdContext.Background()
+		if req := c.Request(); req != nil {
+			ctx = req.Context()
+		}
+
+		return v.ValidateCtx(ctx, i)
+	}
+
+	return c.Validate(i)
 }
 
 func (c *Context) Render(code int, name string, data any) (err error) {

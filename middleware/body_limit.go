@@ -4,45 +4,41 @@
 package middleware
 
 import (
+	"errors"
 	"io"
 	"net/http"
 
 	"github.com/ad3n/echo/v5"
 )
 
-// BodyLimitConfig defines the config for BodyLimitWithConfig middleware.
-type BodyLimitConfig struct {
-	// Skipper defines a function to skip middleware.
-	Skipper Skipper
+type (
+	BodyLimitConfig struct {
+		Skipper Skipper
 
-	// LimitBytes is maximum allowed size in bytes for a request body
-	LimitBytes int64
-}
+		LimitBytes int64
+	}
 
-type limitedReader struct {
-	reader io.ReadCloser
-	limit  int64
-	read   int64
-}
+	limitedReader struct {
+		reader io.ReadCloser
+		err    error
+		limit  int64
+		read   int64
+	}
+)
 
-// BodyLimit returns a BodyLimit middleware.
-//
-// BodyLimit middleware sets the maximum allowed size for a request body, if the size exceeds the configured limit, it
-// sends "413 - Request Entity Too Large" response. The BodyLimit is determined based on both `Content-Length` request
-// header and actual content read, which makes it super secure.
 func BodyLimit(limitBytes int64) echo.MiddlewareFunc {
 	return BodyLimitWithConfig(BodyLimitConfig{LimitBytes: limitBytes})
 }
 
-// BodyLimitWithConfig returns a BodyLimitWithConfig middleware. Middleware sets the maximum allowed size in bytes for
-// a request body, if the  size exceeds the configured limit, it sends "413 - Request Entity Too Large" response.
-// The BodyLimitWithConfig is determined based on both `Content-Length` request header and actual content read, which
-// makes it super secure.
 func BodyLimitWithConfig(config BodyLimitConfig) echo.MiddlewareFunc {
 	return toMiddlewareOrPanic(config)
 }
 
 func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
+	if config.LimitBytes < 0 {
+		return nil, errors.New("body limit must be non-negative")
+	}
+
 	if config.Skipper == nil {
 		config.Skipper = DefaultSkipper
 	}
@@ -73,20 +69,32 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 }
 
 func (r *limitedReader) Read(b []byte) (n int, err error) {
-	n, err = r.reader.Read(b)
-	r.read += int64(n)
-	if r.read > r.limit {
-		return n, echo.ErrStatusRequestEntityTooLarge
+	if r.err != nil {
+		return 0, r.err
 	}
 
-	return
+	if len(b) == 0 {
+		return 0, nil
+	}
+
+	remaining := r.limit - r.read
+	if int64(len(b))-1 > remaining {
+		b = b[:remaining+1]
+	}
+
+	n, err = r.reader.Read(b)
+
+	if int64(n) <= remaining {
+		r.read += int64(n)
+		return n, err
+	}
+
+	n = int(remaining)
+	r.read = r.limit
+	r.err = echo.ErrStatusRequestEntityTooLarge
+	return n, r.err
 }
 
 func (r *limitedReader) Close() error {
 	return r.reader.Close()
-}
-
-func (r *limitedReader) Reset(reader io.ReadCloser) {
-	r.reader = reader
-	r.read = 0
 }

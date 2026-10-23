@@ -81,37 +81,34 @@ func (r RouteInfo) Clone() RouteInfo {
 func (r RouteInfo) Reverse(pathValues ...any) string {
 	var uri strings.Builder
 	uri.Grow(len(r.Path))
-	ln := len(pathValues)
-	n := 0
-	for i, l := 0, len(r.Path); i < l; i++ {
-		hasBackslash := r.Path[i] == '\\'
-		if hasBackslash && i+1 < l && r.Path[i+1] == ':' {
-			i++
+	nextValue := 0
+	walkRoutePath(r.Path, func(part routePathPart) {
+		if part.kind == staticKind {
+			uri.WriteString(part.value)
+			return
 		}
 
-		if n < ln && (r.Path[i] == anyLabel || (!hasBackslash && r.Path[i] == paramLabel)) {
-			for ; i < l && r.Path[i] != '/'; i++ {
-			}
-
-			switch value := pathValues[n].(type) {
+		if nextValue < len(pathValues) {
+			switch value := pathValues[nextValue].(type) {
 			case string:
 				uri.WriteString(value)
 			default:
 				uri.WriteString(fmt.Sprint(value))
 			}
 
-			n++
+			nextValue++
+			return
 		}
 
-		if i < l {
-			uri.WriteByte(r.Path[i])
+		if part.kind == paramKind {
+			uri.WriteByte(paramLabel)
 		}
-	}
 
+		uri.WriteString(strings.ReplaceAll(part.value, `\:`, ":"))
+	})
 	return uri.String()
 }
 
-// HandlerName returns string name for given function.
 func HandlerName(h HandlerFunc) string {
 	t := reflect.ValueOf(h).Type()
 	if t.Kind() == reflect.Func {
