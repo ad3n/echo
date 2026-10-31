@@ -368,6 +368,7 @@ func proxyHTTP(c *echo.Context, tgt *ProxyTarget, config ProxyConfig, clientIP s
 		targetURL.Scheme = "https"
 	}
 	proxy := httputil.NewSingleHostReverseProxy(&targetURL)
+	proxy.BufferPool = &proxyCopyBuffers
 	isWebSocket := c.IsWebSocket()
 	proxy.ErrorHandler = func(resp http.ResponseWriter, req *http.Request, err error) {
 		desc := tgt.URL.String()

@@ -1,0 +1,84 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3624	     78093 ns/op	  13.11 MB/s	   46507 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1892	    153776 ns/op	1704.71 MB/s	   46998 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3368	     78171 ns/op	  13.10 MB/s	   46495 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1918	    152424 ns/op	1719.83 MB/s	   47003 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3452	     79242 ns/op	  12.92 MB/s	   46499 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1922	    167335 ns/op	1566.58 MB/s	   47006 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3422	     78437 ns/op	  13.06 MB/s	   46486 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1920	    154002 ns/op	1702.21 MB/s	   47022 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3811	     80052 ns/op	  12.79 MB/s	   46487 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1921	    154070 ns/op	1701.46 MB/s	   46992 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3724	     78807 ns/op	  12.99 MB/s	   46489 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1909	    152706 ns/op	1716.66 MB/s	   47001 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3408	     78438 ns/op	  13.05 MB/s	   46517 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1944	    152960 ns/op	1713.80 MB/s	   47039 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3430	     79229 ns/op	  12.92 MB/s	   46482 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1904	    153751 ns/op	1704.99 MB/s	   46990 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3424	     78984 ns/op	  12.96 MB/s	   46492 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1908	    153561 ns/op	1707.11 MB/s	   47041 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    4351	     79605 ns/op	  12.86 MB/s	   46498 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1867	    155450 ns/op	1686.36 MB/s	   47004 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    3477	     79605 ns/op	  12.86 MB/s	   46472 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1840	    158882 ns/op	1649.92 MB/s	   46997 B/op	     177 allocs/op
+PASS
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/echo/v5/middleware
+cpu: Apple M3 Pro
+BenchmarkProxyResponseNetwork/bytes=1024-4         	    4422	     80384 ns/op	  12.74 MB/s	   46462 B/op	     160 allocs/op
+BenchmarkProxyResponseNetwork/bytes=262144-4       	    1845	    162147 ns/op	1616.70 MB/s	   47012 B/op	     177 allocs/op
+PASS
