@@ -4,7 +4,6 @@
 package middleware
 
 import (
-	"bufio"
 	"compress/gzip"
 	"io"
 	"net/http"
@@ -210,35 +209,4 @@ func (r *limitedGzipReader) Close() error {
 
 	r.finish(http.ErrBodyReadAfterClose)
 	return r.closeErr
-}
-
-type gzipEOFReader struct{}
-
-func (gzipEOFReader) Read([]byte) (int, error) {
-	return 0, io.EOF
-}
-
-func (gzipEOFReader) ReadByte() (byte, error) {
-	return 0, io.EOF
-}
-
-type gzipInput struct {
-	io.Reader
-	io.ByteReader
-}
-
-func newGzipInput(source io.Reader) *gzipInput {
-	if reader, ok := source.(io.ByteReader); ok {
-		return &gzipInput{Reader: source, ByteReader: reader}
-	}
-
-	buffer := bufio.NewReader(source)
-	return &gzipInput{Reader: buffer, ByteReader: buffer}
-}
-
-func releaseGzipReader(pool *sync.Pool, reader *gzip.Reader, input *gzipInput) {
-	input.Reader = gzipEOFReader{}
-	input.ByteReader = gzipEOFReader{}
-	_ = reader.Reset(gzipEOFReader{})
-	pool.Put(reader)
 }

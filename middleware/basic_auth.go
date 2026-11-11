@@ -126,14 +126,20 @@ func (config BasicAuthConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				}
 				i++
 
-				// Invalid base64 shouldn't be treated as error
-				// instead should be treated as invalid client input
-				b, errDecode := base64.StdEncoding.DecodeString(auth[l+1:])
+				encoded := auth[l+1:]
+				var scratch [256]byte
+				b := scratch[:]
+				if size := base64.StdEncoding.DecodedLen(len(encoded)); size > len(b) {
+					b = make([]byte, size)
+				}
+
+				n, errDecode := base64.StdEncoding.Decode(b, []byte(encoded))
 				if errDecode != nil {
 					lastError = echo.ErrBadRequest.Wrap(errDecode)
 					continue
 				}
-				before, after, ok := bytes.Cut(b, []byte{':'})
+
+				before, after, ok := bytes.Cut(b[:n], []byte{':'})
 				if ok {
 					valid, errValidate := config.Validator(c, string(before), string(after))
 					if errValidate != nil {
