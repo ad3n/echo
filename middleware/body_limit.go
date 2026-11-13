@@ -18,6 +18,8 @@ type (
 		LimitBytes int64
 	}
 
+	emptyLimitedReader struct{}
+
 	limitedReader struct {
 		reader io.ReadCloser
 		err    error
@@ -54,8 +56,9 @@ func (config BodyLimitConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				return echo.ErrStatusRequestEntityTooLarge
 			}
 
-			if req.Body == nil {
-				req.Body = http.NoBody
+			if req.Body == nil || req.Body == http.NoBody {
+				req.Body = emptyLimitedReader{}
+				return next(c)
 			}
 
 			req.Body = &limitedReader{
@@ -97,4 +100,16 @@ func (r *limitedReader) Read(b []byte) (n int, err error) {
 
 func (r *limitedReader) Close() error {
 	return r.reader.Close()
+}
+
+func (emptyLimitedReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	return 0, io.EOF
+}
+
+func (emptyLimitedReader) Close() error {
+	return nil
 }

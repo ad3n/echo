@@ -144,20 +144,25 @@ func (config RedirectConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				scheme = "https"
 			}
 			host := req.Host
-			ok, target := config.redirect(scheme, host, "")
-			if !ok {
+			if !isValidRedirectHost(host) {
+				if redirect, _ := config.redirect(scheme, host, ""); redirect {
+					return echo.ErrBadRequest
+				}
+
 				return next(c)
 			}
-			if !isValidRedirectHost(host) {
-				return echo.ErrBadRequest
-			}
+
 			uri := req.RequestURI
 			if uri == "" || uri[0] != '/' {
 				uri = req.URL.RequestURI()
 			}
-			// The host already anchors this absolute URL, so preserve leading path
-			// slashes. Only control characters need escaping here.
-			return c.Redirect(config.Code, target+escapeControlChars(uri))
+
+			ok, target := config.redirect(scheme, host, uri)
+			if !ok {
+				return next(c)
+			}
+
+			return c.Redirect(config.Code, escapeControlChars(target))
 		}
 	}, nil
 }

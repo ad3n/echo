@@ -57,8 +57,15 @@ func (config AddTrailingSlashConfig) ToMiddleware() (echo.MiddlewareFunc, error)
 			rawPath := url.EscapedPath()
 			qs := c.QueryString()
 			if !strings.HasSuffix(rawPath, "/") {
-				path += "/"
-				rawPath += "/"
+				switch {
+				case rawPath == path:
+					path += "/"
+					rawPath = path
+				default:
+					path += "/"
+					rawPath += "/"
+				}
+
 				uri := rawPath
 				if qs != "" {
 					uri += "?" + qs

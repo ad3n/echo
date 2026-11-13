@@ -151,10 +151,7 @@ func TestContextTimeoutWithDefaultErrorMessage(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	err := m(func(c *echo.Context) error {
-		if err := sleepWithContext(c.Request().Context(), time.Duration(80*time.Millisecond)); err != nil {
-			return err
-		}
-		return c.String(http.StatusOK, "Hello, World!")
+		return waitForContextDeadline(t, c.Request().Context())
 	})(c)
 
 	assert.Error(t, err)
@@ -168,49 +165,51 @@ func TestContextTimeoutCanHandleContextDeadlineOnNextHandler(t *testing.T) {
 	t.Parallel()
 
 	timeoutErrorHandler := func(c *echo.Context, err error) error {
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return &echo.HTTPError{
-					Code:    http.StatusServiceUnavailable,
-					Message: "Timeout! change me",
-				}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return &echo.HTTPError{
+				Code:    http.StatusServiceUnavailable,
+				Message: "Timeout! change me",
 			}
-			return err
 		}
-		return nil
+
+		return err
 	}
 
-	timeout := 50 * time.Millisecond
 	m := ContextTimeoutWithConfig(ContextTimeoutConfig{
-		Timeout:      timeout,
+		Timeout:      50 * time.Millisecond,
 		ErrorHandler: timeoutErrorHandler,
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-
-	e := echo.New()
-	c := e.NewContext(req, rec)
+	c := echo.New().NewContext(req, rec)
 
 	err := m(func(c *echo.Context) error {
-		// NOTE: Very short periods are not reliable for tests due to Go routine scheduling and the unpredictable order
-		// for 1) request and 2) time goroutine. For most OS this works as expected, but MacOS seems most flaky.
-
-		if err := sleepWithContext(c.Request().Context(), 100*time.Millisecond); err != nil {
-			return err
-		}
-
-		// The Request Context should have a Deadline set by http.ContextTimeoutHandler
-		if _, ok := c.Request().Context().Deadline(); !ok {
-			assert.Fail(t, "No timeout set on Request Context")
-		}
-		return c.String(http.StatusOK, "Hello, World!")
+		return waitForContextDeadline(t, c.Request().Context())
 	})(c)
 
-	assert.IsType(t, &echo.HTTPError{}, err)
-	assert.Error(t, err)
+	if !assert.IsType(t, &echo.HTTPError{}, err) {
+		return
+	}
+
 	assert.Equal(t, http.StatusServiceUnavailable, err.(*echo.HTTPError).Code)
 	assert.Equal(t, "Timeout! change me", err.(*echo.HTTPError).Message)
+}
+
+func waitForContextDeadline(t *testing.T, ctx context.Context) error {
+	t.Helper()
+
+	if _, ok := ctx.Deadline(); !ok {
+		t.Fatal("No timeout set on Request Context")
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(5 * time.Second):
+		t.Fatal("Request Context deadline did not cancel the handler")
+		return nil
+	}
 }
 
 func sleepWithContext(ctx context.Context, d time.Duration) error {

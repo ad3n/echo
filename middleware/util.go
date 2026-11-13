@@ -29,6 +29,22 @@ const (
 	EB
 )
 
+const (
+	randomStringCharset    = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	randomStringCharsetLen = 52
+	randomStringMaxByte    = 255 - (256 % randomStringCharsetLen)
+)
+
+type randStringScratch struct {
+	reader *bufio.Reader
+	b      []byte
+	r      []byte
+}
+
+var randStringScratchPool = sync.Pool{New: func() any {
+	return &randStringScratch{reader: bufio.NewReader(rand.Reader)}
+}}
+
 func matchScheme(domain, pattern string) bool {
 	domainScheme, _, domainHasScheme := strings.Cut(domain, ":")
 	patternScheme, _, patternHasScheme := strings.Cut(pattern, ":")
@@ -41,35 +57,21 @@ func createRandomStringGenerator(length uint8) func() string {
 	}
 }
 
-// https://tip.golang.org/doc/go1.19#:~:text=Read%20no%20longer%20buffers%20random%20data%20obtained%20from%20the%20operating%20system%20between%20calls
-var randomReaderPool = sync.Pool{New: func() any {
-	return bufio.NewReader(rand.Reader)
-}}
-
-const randomStringCharset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-const randomStringCharsetLen = 52 // len(randomStringCharset)
-const randomStringMaxByte = 255 - (256 % randomStringCharsetLen)
-
-// randStringScratch holds the reusable working buffers for randomString so that ID generation does not
-// allocate scratch slices on every request (only the returned string is allocated). The buffers grow to
-// the largest requested length and are reused via randStringScratchPool.
-type randStringScratch struct {
-	b []byte // output bytes (copied into the returned string)
-	r []byte // random source bytes read from crypto/rand
-}
-
-var randStringScratchPool = sync.Pool{New: func() any { return new(randStringScratch) }}
-
 func randomString(length uint8) string {
 	if length == 0 {
 		return ""
 	}
 
-	reader := randomReaderPool.Get().(*bufio.Reader)
-	defer randomReaderPool.Put(reader)
-
 	sc := randStringScratchPool.Get().(*randStringScratch)
 	defer randStringScratchPool.Put(sc)
+
+	return sc.generate(length)
+}
+
+func (sc *randStringScratch) generate(length uint8) string {
+	if length == 0 {
+		return ""
+	}
 
 	n := int(length)
 	if cap(sc.b) < n {
@@ -87,7 +89,7 @@ func randomString(length uint8) string {
 	var i uint8 = 0
 
 	for {
-		_, err := io.ReadFull(reader, r)
+		_, err := io.ReadFull(sc.reader, r)
 		if err != nil {
 			panic("unexpected error happened when reading from bufio.NewReader(crypto/rand.Reader)")
 		}

@@ -147,22 +147,13 @@ func (b *DefaultBinder) Bind(c *Context, target any) error {
 	return BindBody(c, target)
 }
 
-// bindFieldMeta is the cached, type-level reflection metadata for a single struct field. Reading struct
-// tags (reflect.StructTag.Get) parses the tag string on every call, so for binding-heavy endpoints we
-// compute it once per struct type and reuse it across requests (see bindStructMeta). Only type-level data
-// is cached here; per-request, per-instance reflect.Value operations still happen in bindData.
 type bindFieldMeta struct {
-	index int // field index within the struct
-	// fieldKind is the DECLARED field kind (typeField.Type.Kind()), used only for unmarshal dispatch.
-	// It is intentionally not the post-anonymous-pointer-deref live kind; bindData computes that
-	// separately as structFieldKind where needed.
-	fieldKind reflect.Kind
-	anonymous bool   // reflect.StructField.Anonymous
-	formatTag string // value of the `format` struct tag
-	// binding-source tag values. bindData is only ever called with one of these four tags (see the
-	// callers BindPathValues/BindQueryParams/BindBody/BindHeaders). Keep these fields, the four
-	// f.Tag.Get(...) lines in bindMetaFor, and the tagName switch in sync if a source is ever added.
+	formatTag                  string
 	param, query, form, header string
+	index                      int
+	fieldKind                  reflect.Kind
+	anonymous                  bool
+	plainScalar                bool
 }
 
 // tagName returns the field's tag value for the given binding source tag.
@@ -199,22 +190,23 @@ func bindMetaFor(typ reflect.Type) *bindStructMeta {
 	meta := &bindStructMeta{fields: make([]bindFieldMeta, n)}
 	for i := range n {
 		f := typ.Field(i)
+		kind := f.Type.Kind()
 		meta.fields[i] = bindFieldMeta{
-			index:     i,
-			anonymous: f.Anonymous,
-			fieldKind: f.Type.Kind(),
-			formatTag: f.Tag.Get("format"),
-			param:     f.Tag.Get("param"),
-			query:     f.Tag.Get("query"),
-			form:      f.Tag.Get("form"),
-			header:    f.Tag.Get("header"),
+			index:       i,
+			plainScalar: f.Type.PkgPath() == "" && (kind == reflect.String || kind >= reflect.Bool && kind <= reflect.Float64),
+			anonymous:   f.Anonymous,
+			fieldKind:   kind,
+			formatTag:   f.Tag.Get("format"),
+			param:       f.Tag.Get("param"),
+			query:       f.Tag.Get("query"),
+			form:        f.Tag.Get("form"),
+			header:      f.Tag.Get("header"),
 		}
 	}
 	bindStructCache.Store(typ, meta)
 	return meta
 }
 
-// bindData will bind data ONLY fields in destination struct that have EXPLICIT tag
 func bindData(destination any, data map[string][]string, tag string, dataFiles map[string][]*multipart.FileHeader) error {
 	if destination == nil || (len(data) == 0 && len(dataFiles) == 0) {
 		return nil
@@ -223,12 +215,6 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 	typ := reflect.TypeOf(destination).Elem()
 	val := reflect.ValueOf(destination).Elem()
 
-	// Support binding to limited Map destinations:
-	// - map[string][]string,
-	// - map[string]string <-- (binds first value from data slice)
-	// - map[string]any
-	// You are better off binding to struct but there are user who want this map feature. Source of data for these cases are:
-	// params,query,header,form as these sources produce string values, most of the time slice of strings, actually.
 	if typ.Kind() == reflect.Map && typ.Key().Kind() == reflect.String {
 		k := typ.Elem().Kind()
 		isElemInterface := k == reflect.Interface
@@ -241,16 +227,12 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 			val.Set(reflect.MakeMap(typ))
 		}
 		for k, v := range data {
-			// A scalar destination needs a value. Slice destinations can retain
-			// empty slices, which is their existing binding behavior.
 			if len(v) == 0 && !isElemSliceOfStrings {
 				continue
 			}
 			if isElemString {
 				val.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v[0]))
 			} else if isElemInterface {
-				// To maintain backward compatibility, we always bind to the first string value
-				// and not the slice of strings when dealing with map[string]any{}
 				val.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v[0]))
 			} else {
 				val.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v))
@@ -259,18 +241,21 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 		return nil
 	}
 
-	// !struct
 	if typ.Kind() != reflect.Struct {
 		if tag == "param" || tag == "query" || tag == "header" {
-			// incompatible type, data is probably to be found in the body
 			return nil
 		}
 		return errors.New("binding element must be a struct")
 	}
 
 	meta := bindMetaFor(typ)
-	for fi := range meta.fields { // iterate over all destination fields
+	for fi := range meta.fields {
 		fm := &meta.fields[fi]
+		inputFieldName := fm.tagName(tag)
+		if inputFieldName == "" && !fm.anonymous && fm.fieldKind != reflect.Struct {
+			continue
+		}
+
 		structField := val.Field(fm.index)
 		if fm.anonymous {
 			if structField.Kind() == reflect.Pointer {
@@ -281,21 +266,17 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 			continue
 		}
 		structFieldKind := structField.Kind()
-		inputFieldName := fm.tagName(tag)
 		if fm.anonymous && structFieldKind == reflect.Struct && inputFieldName != "" {
-			// if anonymous struct with query/param/form tags, report an error
 			return errors.New("query/param/form tags are not allowed with anonymous struct field")
 		}
 
 		if inputFieldName == "" {
-			// If tag is nil, we inspect if the field is a not BindUnmarshaler struct and try to bind data into it (might contain fields with tags).
-			// structs that implement BindUnmarshaler are bound only when they have explicit tag
 			if _, ok := structField.Addr().Interface().(BindUnmarshaler); !ok && structFieldKind == reflect.Struct {
 				if err := bindData(structField.Addr().Interface(), data, tag, dataFiles); err != nil {
 					return err
 				}
 			}
-			// does not have explicit tag and is not an ordinary struct - so move to next field
+
 			continue
 		}
 
@@ -311,10 +292,6 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 
 		inputValue, exists := data[inputFieldName]
 		if !exists {
-			// Go json.Unmarshal supports case-insensitive binding.  However the
-			// url params are bound case-sensitive which is inconsistent.  To
-			// fix this we must check all of the map values in a
-			// case-insensitive search.
 			for k, v := range data {
 				if strings.EqualFold(k, inputFieldName) {
 					inputValue = v
@@ -328,8 +305,6 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 			continue
 		}
 		if len(inputValue) == 0 {
-			// Preserve custom multi-value unmarshalling, but otherwise treat
-			// entries without values as absent (without allocating pointers).
 			value := structField
 			if structFieldKind != reflect.Pointer {
 				value = structField.Addr()
@@ -339,10 +314,14 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 			}
 		}
 
-		// NOTE: algorithm here is not particularly sophisticated. It probably does not work with absurd types like `**[]*int`
-		// but it is smart enough to handle niche cases like `*int`,`*[]string`,`[]*int` .
+		if fm.plainScalar {
+			if err := setScalarField(structFieldKind, inputValue[0], structField); err != nil {
+				return fmt.Errorf("%s: %w", inputFieldName, err)
+			}
 
-		// try unmarshalling first, in case we're dealing with an alias to an array type
+			continue
+		}
+
 		if ok, err := unmarshalInputsToField(fm.fieldKind, inputValue, structField); ok {
 			if err != nil {
 				return fmt.Errorf("%s: %w", inputFieldName, err)
@@ -357,8 +336,6 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 			continue
 		}
 
-		// we could be dealing with pointer to slice `*[]string` so dereference it. There are weird OpenAPI generators
-		// that could create struct fields like that.
 		if structFieldKind == reflect.Pointer {
 			structFieldKind = structField.Elem().Kind()
 			structField = structField.Elem()
@@ -385,12 +362,14 @@ func bindData(destination any, data map[string][]string, tag string, dataFiles m
 }
 
 func setWithProperType(valueKind reflect.Kind, val string, structField reflect.Value) error {
-	// But also call it here, in case we're dealing with an array of BindUnmarshalers
-	// Note: format tag not available in this context, so empty string is passed
 	if ok, err := unmarshalInputToField(valueKind, val, structField, ""); ok {
 		return err
 	}
 
+	return setScalarField(valueKind, val, structField)
+}
+
+func setScalarField(valueKind reflect.Kind, val string, structField reflect.Value) error {
 	switch valueKind {
 	case reflect.Pointer:
 		return setWithProperType(structField.Elem().Kind(), val, structField.Elem())

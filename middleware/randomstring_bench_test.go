@@ -5,9 +5,15 @@ package middleware
 
 import (
 	"bufio"
+	"crypto/rand"
 	"io"
+	"sync"
 	"testing"
 )
+
+var randomReaderPool = sync.Pool{New: func() any {
+	return bufio.NewReader(rand.Reader)
+}}
 
 // randomStringUnpooled is the previous (pre-pooling) implementation, kept here only to A/B benchmark
 // against the current pooled randomString.
