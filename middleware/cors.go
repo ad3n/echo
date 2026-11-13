@@ -18,22 +18,6 @@ type CORSConfig struct {
 	// Skipper defines a function to skip middleware.
 	Skipper Skipper
 
-	// AllowOrigins determines the value of the Access-Control-Allow-Origin
-	// response header.  This header defines a list of origins that may access the
-	// resource.
-	//
-	// Origin consist of following parts: `scheme + "://" + host + optional ":" + port`
-	// Wildcard can be used, but has to be set explicitly []string{"*"}
-	// Example: `https://example.com`, `http://example.com:8080`, `*`
-	//
-	// Security: use extreme caution when handling the origin, and carefully
-	// validate any logic. Remember that attackers may register hostile domain names.
-	// See https://blog.portswigger.net/2016/10/exploiting-cors-misconfigurations-for.html
-	// See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
-	//
-	// Mandatory.
-	AllowOrigins []string
-
 	// UnsafeAllowOriginFunc is an optional custom function to validate the origin. It takes the
 	// origin as an argument and returns
 	// - string, allowed origin
@@ -56,6 +40,22 @@ type CORSConfig struct {
 	// Optional.
 	UnsafeAllowOriginFunc func(c *echo.Context, origin string) (allowedOrigin string, allowed bool, err error)
 
+	// AllowOrigins determines the value of the Access-Control-Allow-Origin
+	// response header.  This header defines a list of origins that may access the
+	// resource.
+	//
+	// Origin consist of following parts: `scheme + "://" + host + optional ":" + port`
+	// Wildcard can be used, but has to be set explicitly []string{"*"}
+	// Example: `https://example.com`, `http://example.com:8080`, `*`
+	//
+	// Security: use extreme caution when handling the origin, and carefully
+	// validate any logic. Remember that attackers may register hostile domain names.
+	// See https://blog.portswigger.net/2016/10/exploiting-cors-misconfigurations-for.html
+	// See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
+	//
+	// Mandatory.
+	AllowOrigins []string
+
 	// AllowMethods determines the value of the Access-Control-Allow-Methods
 	// response header.  This header specified the list of methods allowed when
 	// accessing the resource.  This is used in response to a preflight request.
@@ -77,23 +77,6 @@ type CORSConfig struct {
 	// See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers
 	AllowHeaders []string
 
-	// AllowCredentials determines the value of the
-	// Access-Control-Allow-Credentials response header.  This header indicates
-	// whether or not the response to the request can be exposed when the
-	// credentials mode (Request.credentials) is true. When used as part of a
-	// response to a preflight request, this indicates whether or not the actual
-	// request can be made using credentials.  See also
-	// [MDN: Access-Control-Allow-Credentials].
-	//
-	// Optional. Default value false, in which case the header is not set.
-	//
-	// Security: avoid using `AllowCredentials = true` with `AllowOrigins = *`.
-	// See "Exploiting CORS misconfigurations for Bitcoins and bounties",
-	// https://blog.portswigger.net/2016/10/exploiting-cors-misconfigurations-for.html
-	//
-	// See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials
-	AllowCredentials bool
-
 	// ExposeHeaders determines the value of Access-Control-Expose-Headers, which
 	// defines a list of headers that clients are allowed to access.
 	//
@@ -111,6 +94,23 @@ type CORSConfig struct {
 	//
 	// See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Max-Age
 	MaxAge int
+
+	// AllowCredentials determines the value of the
+	// Access-Control-Allow-Credentials response header.  This header indicates
+	// whether or not the response to the request can be exposed when the
+	// credentials mode (Request.credentials) is true. When used as part of a
+	// response to a preflight request, this indicates whether or not the actual
+	// request can be made using credentials.  See also
+	// [MDN: Access-Control-Allow-Credentials].
+	//
+	// Optional. Default value false, in which case the header is not set.
+	//
+	// Security: avoid using `AllowCredentials = true` with `AllowOrigins = *`.
+	// See "Exploiting CORS misconfigurations for Bitcoins and bounties",
+	// https://blog.portswigger.net/2016/10/exploiting-cors-misconfigurations-for.html
+	//
+	// See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials
+	AllowCredentials bool
 }
 
 // CORS returns a Cross-Origin Resource Sharing (CORS) middleware.

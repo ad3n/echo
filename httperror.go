@@ -110,10 +110,10 @@ func NewHTTPError(code int, message string) *HTTPError {
 
 // HTTPError represents an error that occurred while handling a request.
 type HTTPError struct {
-	// Code is status code for HTTP response
-	Code    int    `json:"-"`
-	Message string `json:"message"`
 	err     error
+	Message string `json:"message"`
+	// Code is status code for HTTP response
+	Code int `json:"-"`
 }
 
 // StatusCode returns status code for HTTP response

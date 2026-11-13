@@ -30,16 +30,17 @@ type proxyClientIPTransport struct {
 
 // ProxyConfig defines the config for Proxy middleware.
 type ProxyConfig struct {
-	// Skipper defines a function to skip middleware.
-	Skipper Skipper
 
 	// Balancer defines a load balancing technique.
 	// Required.
 	Balancer ProxyBalancer
 
-	// RetryCount defines the number of times a failed proxied request should be retried
-	// using the next available ProxyTarget. Defaults to 0, meaning requests are never retried.
-	RetryCount int
+	// To customize the transport to remote.
+	// Examples: If custom TLS certificates are required.
+	Transport http.RoundTripper
+
+	// Skipper defines a function to skip middleware.
+	Skipper Skipper
 
 	// RetryFilter defines a function used to determine if a failed request to a
 	// ProxyTarget should be retried. The RetryFilter will only be called when the number
@@ -80,23 +81,23 @@ type ProxyConfig struct {
 	// "^/api/.+?/(.*)":    "/v2/$1",
 	RegexRewrite map[*regexp.Regexp]string
 
+	// ModifyResponse defines function to modify response from ProxyTarget.
+	ModifyResponse func(*http.Response) error
+
 	// Context key to store selected ProxyTarget into context.
 	// Optional. Default value "target".
 	ContextKey string
 
-	// To customize the transport to remote.
-	// Examples: If custom TLS certificates are required.
-	Transport http.RoundTripper
-
-	// ModifyResponse defines function to modify response from ProxyTarget.
-	ModifyResponse func(*http.Response) error
+	// RetryCount defines the number of times a failed proxied request should be retried
+	// using the next available ProxyTarget. Defaults to 0, meaning requests are never retried.
+	RetryCount int
 }
 
 // ProxyTarget defines the upstream target.
 type ProxyTarget struct {
-	Name string
 	URL  *url.URL
 	Meta map[string]any
+	Name string
 }
 
 // ProxyBalancer defines an interface to implement a load balancing technique.
@@ -113,8 +114,8 @@ type commonBalancer struct {
 
 // RandomBalancer implements a random load balancing technique.
 type randomBalancer struct {
-	commonBalancer
 	random *rand.Rand
+	commonBalancer
 }
 
 // RoundRobinBalancer implements a round-robin load balancing technique.

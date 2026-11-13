@@ -18,12 +18,12 @@ type ProblemError struct {
 	// Title is a short, human-readable summary of the problem type. Defaults to the status
 	// text of Status when empty.
 	Title string `json:"title"`
-	// Status is the HTTP status code for this occurrence of the problem.
-	Status int `json:"status"`
 	// Detail is a human-readable explanation specific to this occurrence of the problem.
 	Detail string `json:"detail,omitempty"`
 	// Instance is a URI reference that identifies the specific occurrence of the problem.
 	Instance string `json:"instance,omitempty"`
+	// Status is the HTTP status code for this occurrence of the problem.
+	Status int `json:"status"`
 }
 
 // Error makes ProblemError compatible with the `error` interface.

@@ -16,11 +16,11 @@ type RedirectConfig struct {
 	// Skipper defines a function to skip middleware.
 	Skipper
 
+	redirect redirectLogic
+
 	// Status code to be used when redirecting the request.
 	// Optional. Default value http.StatusMovedPermanently.
 	Code int
-
-	redirect redirectLogic
 }
 
 // redirectLogic represents a function that given a scheme, host and uri

@@ -14,8 +14,8 @@ func NewConcurrentRouter(r Router) Router {
 }
 
 type concurrentRouter struct {
-	mu     sync.RWMutex
 	router Router
+	mu     sync.RWMutex
 }
 
 func (r *concurrentRouter) Route(c *Context) HandlerFunc {

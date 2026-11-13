@@ -36,6 +36,18 @@ type SecureConfig struct {
 	// - "ALLOW-FROM uri" - The page can only be displayed in a frame on the specified origin.
 	XFrameOptions string
 
+	// ContentSecurityPolicy sets the `Content-Security-Policy` header providing
+	// security against cross-site scripting (XSS), clickjacking and other code
+	// injection attacks resulting from execution of malicious content in the
+	// trusted web page context.
+	// Optional. Default value "".
+	ContentSecurityPolicy string
+
+	// ReferrerPolicy sets the `Referrer-Policy` header providing security against
+	// leaking potentially sensitive request paths to third parties.
+	// Optional. Default value "".
+	ReferrerPolicy string
+
 	// HSTSMaxAge sets the `Strict-Transport-Security` header to indicate how
 	// long (in seconds) browsers should remember that this site is only to
 	// be accessed using HTTPS. This reduces your exposure to some SSL-stripping
@@ -49,13 +61,6 @@ type SecureConfig struct {
 	// Optional. Default value false.
 	HSTSExcludeSubdomains bool
 
-	// ContentSecurityPolicy sets the `Content-Security-Policy` header providing
-	// security against cross-site scripting (XSS), clickjacking and other code
-	// injection attacks resulting from execution of malicious content in the
-	// trusted web page context.
-	// Optional. Default value "".
-	ContentSecurityPolicy string
-
 	// CSPReportOnly would use the `Content-Security-Policy-Report-Only` header instead
 	// of the `Content-Security-Policy` header. This allows iterative updates of the
 	// content security policy by only reporting the violations that would
@@ -68,11 +73,6 @@ type SecureConfig struct {
 	// maintained by Chrome (and used by Firefox and Safari): https://hstspreload.org/
 	// Optional.  Default value false.
 	HSTSPreloadEnabled bool
-
-	// ReferrerPolicy sets the `Referrer-Policy` header providing security against
-	// leaking potentially sensitive request paths to third parties.
-	// Optional. Default value "".
-	ReferrerPolicy string
 }
 
 // DefaultSecureConfig is the default Secure middleware config.

@@ -27,13 +27,6 @@ const CSRFUsingSecFetchSite = "_echo_csrf_using_sec_fetch_site_"
 type CSRFConfig struct {
 	// Skipper defines a function to skip middleware.
 	Skipper Skipper
-	// TrustedOrigins permits any request with `Sec-Fetch-Site` header whose `Origin` header
-	// exactly matches a configured origin.
-	// Values should be formatted as Origin header "scheme://host[:port]".
-	//
-	// See [Origin]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin
-	// See [Sec-Fetch-Site]: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#fetch-metadata-headers
-	TrustedOrigins []string
 
 	// AllowSecFetchSiteFunc allows custom behaviour for `Sec-Fetch-Site` requests that are about to
 	// fail with CSRF error, to be allowed or replaced with custom error.
@@ -43,10 +36,12 @@ type CSRFConfig struct {
 	// See [Sec-Fetch-Site]: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#fetch-metadata-headers
 	AllowSecFetchSiteFunc func(c *echo.Context) (bool, error)
 
-	// TokenLength is the length of the generated token.
-	TokenLength uint8
-	// Optional. Default value 32.
+	// Generator defines a function to generate token.
+	// Optional. Defaults to randomString(TokenLength).
+	Generator func() string
 
+	// ErrorHandler defines a function which is executed for returning custom errors.
+	ErrorHandler func(c *echo.Context, err error) error
 	// TokenLookup is a string in the form of "<source>:<name>" or "<source>:<name>,<source>:<name>" that is used
 	// to extract token from the request.
 	// Optional. Default value "header:X-CSRF-Token".
@@ -57,10 +52,6 @@ type CSRFConfig struct {
 	// Multiple sources example:
 	// - "header:X-CSRF-Token,query:csrf"
 	TokenLookup string `yaml:"token_lookup"`
-
-	// Generator defines a function to generate token.
-	// Optional. Defaults to randomString(TokenLength).
-	Generator func() string
 
 	// Context key to store generated CSRF token into context.
 	// Optional. Default value "csrf".
@@ -78,9 +69,25 @@ type CSRFConfig struct {
 	// Optional. Default value none.
 	CookiePath string
 
+	// TrustedOrigins permits any request with `Sec-Fetch-Site` header whose `Origin` header
+	// exactly matches a configured origin.
+	// Values should be formatted as Origin header "scheme://host[:port]".
+	//
+	// See [Origin]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin
+	// See [Sec-Fetch-Site]: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#fetch-metadata-headers
+	TrustedOrigins []string
+
 	// Max age (in seconds) of the CSRF cookie.
 	// Optional. Default value 86400 (24hr).
 	CookieMaxAge int
+
+	// Indicates SameSite mode of the CSRF cookie.
+	// Optional. Default value SameSiteDefaultMode.
+	CookieSameSite http.SameSite
+
+	// TokenLength is the length of the generated token.
+	TokenLength uint8
+	// Optional. Default value 32.
 
 	// Indicates if CSRF cookie is secure.
 	// Optional. Default value false.
@@ -89,13 +96,6 @@ type CSRFConfig struct {
 	// Indicates if CSRF cookie is HTTP only.
 	// Optional. Default value false.
 	CookieHTTPOnly bool
-
-	// Indicates SameSite mode of the CSRF cookie.
-	// Optional. Default value SameSiteDefaultMode.
-	CookieSameSite http.SameSite
-
-	// ErrorHandler defines a function which is executed for returning custom errors.
-	ErrorHandler func(c *echo.Context, err error) error
 }
 
 // ErrCSRFInvalid is returned when CSRF check fails

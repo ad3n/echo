@@ -24,33 +24,21 @@ const (
 
 // StartConfig is for creating configured http.Server instance to start serve http(s) requests with given Echo instance
 type StartConfig struct {
-	// Address specifies the address where listener will start listening on to serve HTTP(s) requests
-	Address string
-
-	// HideBanner instructs Start* method not to print banner when starting the Server.
-	HideBanner bool
-	// HidePort instructs Start* method not to print port when starting the Server.
-	HidePort bool
 
 	// CertFilesystem is filesystem is used to read `certFile` and `keyFile` when StartTLS method is called.
 	CertFilesystem fs.FS
 
+	// Listener is used to start server with the custom listener.
+	Listener net.Listener
+
 	// TLSConfig is used to configure TLS. If Listener is set, TLSConfig is not used to create the listener.
 	TLSConfig *tls.Config
 
-	// Listener is used to start server with the custom listener.
-	Listener net.Listener
-	// ListenerNetwork is used configure on which Network listener will use.
-	// If Listener is set, ListenerNetwork is not used.
-	ListenerNetwork string
 	// ListenerAddrFunc will be called after listener is created and started to listen for connections. This is useful in
 	// testing situations when server is started on random port `address = ":0"` in that case you can get actual port where
 	// listener is listening on.
 	ListenerAddrFunc func(addr net.Addr)
 
-	// GracefulTimeout is timeout value (defaults to 10sec) graceful shutdown will wait for server to handle ongoing requests
-	// before shutting down the server.
-	GracefulTimeout time.Duration
 	// OnShutdownError is called when graceful shutdown results an error. for example when listeners are not shut down within
 	// given timeout
 	OnShutdownError func(err error)
@@ -58,6 +46,21 @@ type StartConfig struct {
 	// BeforeServeFunc is callback that is called just before server starts to serve HTTP request.
 	// Use this callback when you want to configure http.Server different timeouts/limits/etc
 	BeforeServeFunc func(s *http.Server) error
+	// Address specifies the address where listener will start listening on to serve HTTP(s) requests
+	Address string
+
+	// ListenerNetwork is used configure on which Network listener will use.
+	// If Listener is set, ListenerNetwork is not used.
+	ListenerNetwork string
+
+	// GracefulTimeout is timeout value (defaults to 10sec) graceful shutdown will wait for server to handle ongoing requests
+	// before shutting down the server.
+	GracefulTimeout time.Duration
+
+	// HideBanner instructs Start* method not to print banner when starting the Server.
+	HideBanner bool
+	// HidePort instructs Start* method not to print port when starting the Server.
+	HidePort bool
 }
 
 // Start starts given Handler with HTTP(s) server.

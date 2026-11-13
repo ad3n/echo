@@ -67,7 +67,7 @@ import (
 // fields from handlers/middlewares and changing field values at the same time leads to data-races.
 // Same rule applies to adding new routes after server has been started - Adding a route is not Goroutine safe action.
 type Echo struct {
-	serveHTTPFunc func(http.ResponseWriter, *http.Request)
+	contextPool sync.Pool
 
 	Binder Binder
 
@@ -79,24 +79,19 @@ type Echo struct {
 	// absolute path prefix.
 	Filesystem fs.FS
 
-	Renderer         Renderer
-	Validator        Validator
-	JSONSerializer   JSONSerializer
+	Renderer       Renderer
+	Validator      Validator
+	JSONSerializer JSONSerializer
+
+	router Router
+
+	serveHTTPFunc func(http.ResponseWriter, *http.Request)
+
 	IPExtractor      IPExtractor
 	SchemeExtractor  SchemeExtractor
 	OnAddRoute       func(route Route) error
 	HTTPErrorHandler HTTPErrorHandler
 	Logger           *slog.Logger
-
-	contextPool sync.Pool
-
-	router Router
-
-	// premiddleware are middlewares that are called before routing is done
-	premiddleware []MiddlewareFunc
-
-	// middleware are middlewares that are called after routing is done and before handler is called
-	middleware []MiddlewareFunc
 
 	// chain is the global middleware chain (e.middleware) compiled once and reused for every request.
 	// It terminates in a dispatcher that invokes the route handler stored on the Context during routing.
@@ -106,10 +101,16 @@ type Echo struct {
 	// invokes chain. Rebuilt by Pre()/Use(). Only used when premiddleware is registered.
 	preChain HandlerFunc
 
-	contextPathParamAllocSize atomic.Int32
+	// premiddleware are middlewares that are called before routing is done
+	premiddleware []MiddlewareFunc
+
+	// middleware are middlewares that are called after routing is done and before handler is called
+	middleware []MiddlewareFunc
 
 	// formParseMaxMemory is passed to Context for multipart form parsing (See http.Request.ParseMultipartForm)
 	formParseMaxMemory int64
+
+	contextPathParamAllocSize atomic.Int32
 
 	// noGroupAutoRegisterRoutes is a flag that indicates whether echo.Group should NOT register 404 routes automatically
 	// when there are middlewares registered with the group.

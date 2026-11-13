@@ -131,6 +131,20 @@ type RequestLoggerConfig struct {
 	// Mandatory.
 	LogValuesFunc func(c *echo.Context, v RequestLoggerValues) error
 
+	timeNow func() time.Time
+	// LogHeaders instructs logger to extract given list of headers from request. Note: request can contain more than
+	// one header with same value so slice of values is been logger for each given header.
+	//
+	// Note: header values are converted to canonical form with http.CanonicalHeaderKey as this how request parser converts header
+	// names to. For example, the canonical key for "accept-encoding" is "Accept-Encoding".
+	LogHeaders []string
+	// LogQueryParams instructs logger to extract given list of query parameters from request URI. Note: request can
+	// contain more than one query parameter with same name so slice of values is been logger for each given query param name.
+	LogQueryParams []string
+	// LogFormValues instructs logger to extract given list of form values from request body+URI. Note: request can
+	// contain more than one form value with same name so slice of values is been logger for each given form value name.
+	LogFormValues []string
+
 	// HandleError instructs logger to call global error handler when next middleware/handler returns an error.
 	// This is useful when you have custom error handler that can decide to use different status codes.
 	//
@@ -169,28 +183,25 @@ type RequestLoggerConfig struct {
 	// LogResponseSize instructs logger to extract response content length value. Note: when used with Gzip middleware
 	// this value may not be always correct.
 	LogResponseSize bool
-	// LogHeaders instructs logger to extract given list of headers from request. Note: request can contain more than
-	// one header with same value so slice of values is been logger for each given header.
-	//
-	// Note: header values are converted to canonical form with http.CanonicalHeaderKey as this how request parser converts header
-	// names to. For example, the canonical key for "accept-encoding" is "Accept-Encoding".
-	LogHeaders []string
-	// LogQueryParams instructs logger to extract given list of query parameters from request URI. Note: request can
-	// contain more than one query parameter with same name so slice of values is been logger for each given query param name.
-	LogQueryParams []string
-	// LogFormValues instructs logger to extract given list of form values from request body+URI. Note: request can
-	// contain more than one form value with same name so slice of values is been logger for each given form value name.
-	LogFormValues []string
-
-	timeNow func() time.Time
 }
 
 // RequestLoggerValues contains extracted values from logger.
 type RequestLoggerValues struct {
 	// StartTime is time recorded before next middleware/handler is executed.
 	StartTime time.Time
-	// Latency is duration it took to execute rest of the handler chain (next(c) call).
-	Latency time.Duration
+	// Error is error returned from executed handler chain.
+	Error error
+	// Headers are list of headers from request. Note: request can contain more than one header with same value so slice
+	// of values is what will be returned/logged for each given header.
+	// Note: header values are converted to canonical form with http.CanonicalHeaderKey as this how request parser converts header
+	// names to. For example, the canonical key for "accept-encoding" is "Accept-Encoding".
+	Headers map[string][]string
+	// QueryParams are list of query parameters from request URI. Note: request can contain more than one query parameter
+	// with same name so slice of values is what will be returned/logged for each given query param name.
+	QueryParams map[string][]string
+	// FormValues are list of form values from request body+URI. Note: request can contain more than one form value with
+	// same name so slice of values is what will be returned/logged for each given form value name.
+	FormValues map[string][]string
 	// Protocol is request protocol (i.e. `HTTP/1.1` or `HTTP/2`)
 	Protocol string
 	// RemoteIP is request remote IP. See `echo.Context.RealIP()` for implementation details.
@@ -211,26 +222,15 @@ type RequestLoggerValues struct {
 	Referer string
 	// UserAgent is request user agent values.
 	UserAgent string
-	// Status is a response status code. When the handler returns an error satisfying echo.StatusCoder interface, then code from it.
-	Status int
-	// Error is error returned from executed handler chain.
-	Error error
 	// ContentLength is content length header value. Note: this value could be different from actual request body size
 	// as it could be spoofed etc.
 	ContentLength string
+	// Latency is duration it took to execute rest of the handler chain (next(c) call).
+	Latency time.Duration
+	// Status is a response status code. When the handler returns an error satisfying echo.StatusCoder interface, then code from it.
+	Status int
 	// ResponseSize is response content length value. Note: when used with Gzip middleware this value may not be always correct.
 	ResponseSize int64
-	// Headers are list of headers from request. Note: request can contain more than one header with same value so slice
-	// of values is what will be returned/logged for each given header.
-	// Note: header values are converted to canonical form with http.CanonicalHeaderKey as this how request parser converts header
-	// names to. For example, the canonical key for "accept-encoding" is "Accept-Encoding".
-	Headers map[string][]string
-	// QueryParams are list of query parameters from request URI. Note: request can contain more than one query parameter
-	// with same name so slice of values is what will be returned/logged for each given query param name.
-	QueryParams map[string][]string
-	// FormValues are list of form values from request body+URI. Note: request can contain more than one form value with
-	// same name so slice of values is what will be returned/logged for each given form value name.
-	FormValues map[string][]string
 }
 
 // RequestLoggerWithConfig returns a RequestLogger middleware with config.

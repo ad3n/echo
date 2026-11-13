@@ -168,14 +168,15 @@ func (config RateLimiterConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 
 // RateLimiterMemoryStore is the built-in store implementation for RateLimiter
 type RateLimiterMemoryStore struct {
-	visitors    map[string]*Visitor
-	mutex       sync.Mutex
-	rate        float64 // for more info check out Limiter docs - https://pkg.go.dev/golang.org/x/time/rate#Limit
-	burst       int
-	expiresIn   time.Duration
 	lastCleanup time.Time
 
-	timeNow func() time.Time
+	visitors map[string]*Visitor
+
+	timeNow   func() time.Time
+	rate      float64 // for more info check out Limiter docs - https://pkg.go.dev/golang.org/x/time/rate#Limit
+	burst     int
+	expiresIn time.Duration
+	mutex     sync.Mutex
 }
 
 // Visitor signifies a unique user's limiter details

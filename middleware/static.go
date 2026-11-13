@@ -22,6 +22,11 @@ import (
 
 // StaticConfig defines the config for Static middleware.
 type StaticConfig struct {
+
+	// Filesystem provides access to the static content.
+	// Optional. Defaults to echo.Filesystem (serves files from `.` folder where executable is started)
+	Filesystem fs.FS
+
 	// Skipper defines a function to skip middleware.
 	Skipper Skipper
 
@@ -30,13 +35,13 @@ type StaticConfig struct {
 	// Required.
 	Root string
 
-	// Filesystem provides access to the static content.
-	// Optional. Defaults to echo.Filesystem (serves files from `.` folder where executable is started)
-	Filesystem fs.FS
-
 	// Index file for serving a directory.
 	// Optional. Default value "index.html".
 	Index string
+
+	// DirectoryListTemplate is template to list directory contents
+	// Optional. Default to `directoryListHTMLTemplate` constant below.
+	DirectoryListTemplate string
 
 	// Enable HTML5 mode by forwarding all not-found requests to root so that
 	// SPA (single-page application) can handle the routing.
@@ -78,10 +83,6 @@ type StaticConfig struct {
 	//       e.GET("/admin/*", func(c *Context) error { return echo.ErrForbidden })
 	// Then request to `/assets/../admin%2fprivate.txt` will be served as router does not match it to guarded route.
 	EnablePathUnescaping bool
-
-	// DirectoryListTemplate is template to list directory contents
-	// Optional. Default to `directoryListHTMLTemplate` constant below.
-	DirectoryListTemplate string
 }
 
 const directoryListHTMLTemplate = `

@@ -20,6 +20,19 @@ type KeyAuthConfig struct {
 	// Skipper defines a function to skip middleware.
 	Skipper Skipper
 
+	// Validator is a function to validate key.
+	// Required.
+	Validator KeyAuthValidator
+
+	// ErrorHandler defines a function which is executed when all lookups have been done and none of them passed Validator
+	// function. ErrorHandler is executed with last missing (ErrExtractionValueMissing) or an invalid key.
+	// It may be used to define a custom error.
+	//
+	// Note: when error handler swallows the error (returns nil) middleware continues handler chain execution towards handler.
+	// This is useful in cases when portion of your site/api is publicly accessible and has extra features for authorized users
+	// In that case you can use ErrorHandler to set default public auth value to request and continue with handler chain.
+	ErrorHandler KeyAuthErrorHandler
+
 	// KeyLookup is a string in the form of "<source>:<name>" or "<source>:<name>,<source>:<name>" that is used
 	// to extract key from the request.
 	// Optional. Default value "header:Authorization:Bearer ".
@@ -40,19 +53,6 @@ type KeyAuthConfig struct {
 	// useful environments like corporate test environments with application proxies restricting
 	// access to environment with their own auth scheme.
 	AllowedCheckLimit uint
-
-	// Validator is a function to validate key.
-	// Required.
-	Validator KeyAuthValidator
-
-	// ErrorHandler defines a function which is executed when all lookups have been done and none of them passed Validator
-	// function. ErrorHandler is executed with last missing (ErrExtractionValueMissing) or an invalid key.
-	// It may be used to define a custom error.
-	//
-	// Note: when error handler swallows the error (returns nil) middleware continues handler chain execution towards handler.
-	// This is useful in cases when portion of your site/api is publicly accessible and has extra features for authorized users
-	// In that case you can use ErrorHandler to set default public auth value to request and continue with handler chain.
-	ErrorHandler KeyAuthErrorHandler
 
 	// ContinueOnIgnoredError allows the next middleware/handler to be called when ErrorHandler decides to
 	// ignore the error (by returning `nil`).

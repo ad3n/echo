@@ -90,8 +90,8 @@ func (config RecoverConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 // PanicStackError is an error type that wraps an error along with its stack trace.
 // It is returned when config.DisablePrintStack is set to false.
 type PanicStackError struct {
-	Stack []byte
 	Err   error
+	Stack []byte
 }
 
 func (e *PanicStackError) Error() string {

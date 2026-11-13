@@ -17,15 +17,6 @@ type TimeLayout string
 
 // TimeOpts is options for parsing time.Time values
 type TimeOpts struct {
-	// Layout specifies the format for parsing time values in request parameters.
-	// It can be a standard Go time layout string or one of the special Unix time layouts.
-	//
-	// Parsing layout defaults to: echo.TimeLayout(time.RFC3339Nano)
-	// - To convert to custom layout use `echo.TimeLayout("2006-01-02")`
-	// - To convert unix timestamp (integer) to time.Time use `echo.TimeLayoutUnixTime`
-	// - To convert unix timestamp in milliseconds to time.Time use `echo.TimeLayoutUnixTimeMilli`
-	// - To convert unix timestamp in nanoseconds to time.Time use `echo.TimeLayoutUnixTimeNano`
-	Layout TimeLayout
 
 	// ParseInLocation is location used with time.ParseInLocation for layout that do not contain
 	// timezone information to set output time in given location.
@@ -36,6 +27,15 @@ type TimeOpts struct {
 	// The parsed time will be converted using time.In(ToInLocation).
 	// Defaults to time.UTC
 	ToInLocation *time.Location
+	// Layout specifies the format for parsing time values in request parameters.
+	// It can be a standard Go time layout string or one of the special Unix time layouts.
+	//
+	// Parsing layout defaults to: echo.TimeLayout(time.RFC3339Nano)
+	// - To convert to custom layout use `echo.TimeLayout("2006-01-02")`
+	// - To convert unix timestamp (integer) to time.Time use `echo.TimeLayoutUnixTime`
+	// - To convert unix timestamp in milliseconds to time.Time use `echo.TimeLayoutUnixTimeMilli`
+	// - To convert unix timestamp in nanoseconds to time.Time use `echo.TimeLayoutUnixTimeNano`
+	Layout TimeLayout
 }
 
 // TimeLayout constants for parsing Unix timestamps in different precisions.
