@@ -18,38 +18,6 @@ type discardHandler struct {
 
 func (d *discardHandler) Enabled(context.Context, slog.Level) bool { return false }
 
-func Test_matchScheme(t *testing.T) {
-	tests := []struct {
-		domain, pattern string
-		expected        bool
-	}{
-		{
-			domain:   "http://example.com",
-			pattern:  "http://example.com",
-			expected: true,
-		},
-		{
-			domain:   "https://example.com",
-			pattern:  "https://example.com",
-			expected: true,
-		},
-		{
-			domain:   "http://example.com",
-			pattern:  "https://example.com",
-			expected: false,
-		},
-		{
-			domain:   "https://example.com",
-			pattern:  "http://example.com",
-			expected: false,
-		},
-	}
-
-	for _, v := range tests {
-		assert.Equal(t, v.expected, matchScheme(v.domain, v.pattern))
-	}
-}
-
 func TestRandomString(t *testing.T) {
 	var testCases = []struct {
 		name       string

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strings"
 	"sync"
 )
 
@@ -44,12 +43,6 @@ type randStringScratch struct {
 var randStringScratchPool = sync.Pool{New: func() any {
 	return &randStringScratch{reader: bufio.NewReader(rand.Reader)}
 }}
-
-func matchScheme(domain, pattern string) bool {
-	domainScheme, _, domainHasScheme := strings.Cut(domain, ":")
-	patternScheme, _, patternHasScheme := strings.Cut(pattern, ":")
-	return domainHasScheme && patternHasScheme && domainScheme == patternScheme
-}
 
 func createRandomStringGenerator(length uint8) func() string {
 	return func() string {

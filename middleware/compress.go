@@ -54,6 +54,7 @@ type gzipResponseWriter struct {
 	wroteBody         bool
 	minLengthExceeded bool
 	finalized         bool
+	passthrough       bool
 }
 
 // Gzip returns a middleware which compresses HTTP response using gzip compression scheme.
@@ -94,7 +95,7 @@ func (config GzipConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 
 			rw := c.Response()
 			rw.Header().Add(echo.HeaderVary, echo.HeaderAcceptEncoding)
-			if !strings.Contains(c.Request().Header.Get(echo.HeaderAcceptEncoding), gzipScheme) {
+			if !acceptsGzip(c.Request().Header.Values(echo.HeaderAcceptEncoding)) {
 				return next(c)
 			}
 
@@ -153,8 +154,15 @@ func (config GzipConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 					return
 				}
 
-				if !grw.wroteBody && rw.Header().Get(echo.HeaderContentEncoding) == gzipScheme {
+				if grw.passthrough || (err == nil && grw.passThroughIfEncoded()) {
+					return
+				}
+
+				if !grw.wroteBody {
 					rw.Header().Del(echo.HeaderContentEncoding)
+					if err != nil {
+						rw.Header().Del(echo.HeaderContentLength)
+					}
 				}
 
 				if grw.wroteHeader {
@@ -190,14 +198,23 @@ func (w *gzipResponseWriter) WriteHeader(code int) {
 		return
 	}
 
-	w.Header().Del(echo.HeaderContentLength)
+	if (code >= 100 && code < 200 && code != http.StatusSwitchingProtocols) || w.passthrough {
+		w.ResponseWriter.WriteHeader(code)
+		return
+	}
+
 	w.wroteHeader = true
 	w.code = code
+	w.passThroughIfEncoded()
 }
 
 func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	if w.finalized {
 		return w.Writer.Write(b)
+	}
+
+	if w.passThroughIfEncoded() {
+		return w.ResponseWriter.Write(b)
 	}
 
 	if w.Header().Get(echo.HeaderContentType) == "" {
@@ -238,8 +255,8 @@ func (w *gzipResponseWriter) startCompression() {
 }
 
 func (w *gzipResponseWriter) Flush() {
-	if w.finalized {
-		_ = http.NewResponseController(w.ResponseWriter).Flush()
+	if w.finalized || w.passThroughIfEncoded() {
+		http.NewResponseController(w.ResponseWriter).Flush()
 		return
 	}
 
@@ -307,4 +324,77 @@ func bufferPool() sync.Pool {
 			return b
 		},
 	}
+}
+
+func (w *gzipResponseWriter) passThroughIfEncoded() bool {
+	if w.passthrough {
+		return true
+	}
+	if w.wroteBody || w.minLengthExceeded {
+		return false
+	}
+	if !hasContentCoding(w.Header().Values(echo.HeaderContentEncoding)) {
+		return false
+	}
+	w.passthrough = true
+	if w.wroteHeader {
+		w.ResponseWriter.WriteHeader(w.code)
+	}
+	return true
+}
+
+func hasContentCoding(headers []string) bool {
+	for _, header := range headers {
+		for coding := range strings.SplitSeq(header, ",") {
+			coding = strings.TrimSpace(coding)
+			if coding != "" && !strings.EqualFold(coding, "identity") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func acceptsGzip(headers []string) bool {
+	var gzipAllowed, wildcardAllowed, wildcardRefused bool
+	for _, header := range headers {
+		for entry := range strings.SplitSeq(header, ",") {
+			coding, weight, hasWeight := strings.Cut(entry, ";")
+			coding = strings.TrimSpace(coding)
+			switch {
+			case strings.EqualFold(coding, gzipScheme), strings.EqualFold(coding, "x-gzip"):
+				if hasWeight && !positiveQualityValue(weight) {
+					return false
+				}
+				gzipAllowed = true
+			case coding == "*":
+				if hasWeight && !positiveQualityValue(weight) {
+					wildcardRefused = true
+				} else {
+					wildcardAllowed = true
+				}
+			}
+		}
+	}
+	return gzipAllowed || (wildcardAllowed && !wildcardRefused)
+}
+
+func positiveQualityValue(weight string) bool {
+	name, value, ok := strings.Cut(strings.TrimSpace(weight), "=")
+	if !ok || !strings.EqualFold(name, "q") {
+		return false
+	}
+	whole, fraction, _ := strings.Cut(value, ".")
+	if (whole != "0" && whole != "1") || len(fraction) > 3 {
+		return false
+	}
+	positive := whole == "1"
+	for i := range len(fraction) {
+		digit := fraction[i]
+		if digit < '0' || digit > '9' || (whole == "1" && digit != '0') {
+			return false
+		}
+		positive = positive || digit != '0'
+	}
+	return positive
 }

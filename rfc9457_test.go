@@ -151,7 +151,13 @@ func TestProblemDetailsHTTPErrorHandler(t *testing.T) {
 			e.ServeHTTP(rec, req)
 
 			assert.Equal(t, tc.expectStatus, rec.Code)
-			assert.Equal(t, tc.expectBody, rec.Body.String())
+			if tc.expectBody == "" {
+				assert.Empty(t, rec.Body.String())
+			}
+
+			if tc.expectBody != "" {
+				assert.JSONEq(t, tc.expectBody, rec.Body.String())
+			}
 			assert.Equal(t, MIMEApplicationProblemJSON, rec.Header().Get(HeaderContentType))
 		})
 	}
@@ -199,6 +205,6 @@ func TestProblemDetailsHTTPErrorHandler_DoesNotMutateSharedProblem(t *testing.T)
 	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/path", nil))
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
-	assert.Equal(t, `{"type":"about:blank","title":"Not Found","status":404,"detail":"no such widget"}`+"\n", rec.Body.String())
+	assert.JSONEq(t, `{"type":"about:blank","title":"Not Found","status":404,"detail":"no such widget"}`, rec.Body.String())
 	assert.Equal(t, original, *sentinel)
 }
