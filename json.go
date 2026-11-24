@@ -6,7 +6,14 @@ package echo
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"sync"
+)
+
+const (
+	maxPooledJSONBuf    = 1 << 16
+	maxPresizedJSONBody = 256 << 10
+	jsonBodyProbeSize   = 32 << 10
 )
 
 // DefaultJSONSerializer implements JSON encoding using encoding/json.
@@ -18,10 +25,6 @@ type DefaultJSONSerializer struct{}
 var jsonBufPool = sync.Pool{New: newJSONBuf}
 
 func newJSONBuf() any { return new(bytes.Buffer) }
-
-// maxPooledJSONBuf caps the capacity of buffers returned to jsonBufPool so a
-// single large request body cannot pin an oversized buffer in the pool.
-const maxPooledJSONBuf = 1 << 16 // 64 KiB
 
 // Serialize converts an interface into a json and writes it to the response.
 // You can optionally use the indent parameter to produce pretty JSONs.
@@ -48,19 +51,46 @@ func (d DefaultJSONSerializer) Deserialize(c *Context, target any) error {
 	buf := jsonBufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer func() {
-		// Do not return oversized buffers to the pool — they would pin memory.
 		if buf.Cap() <= maxPooledJSONBuf {
 			jsonBufPool.Put(buf)
 		}
 	}()
-	if _, err := buf.ReadFrom(c.Request().Body); err != nil {
+
+	req := c.Request()
+	if err := readJSONBody(buf, req.Body, req.ContentLength); err != nil {
 		if StatusCode(err) != 0 {
 			return err
 		}
+
 		return ErrBadRequest.Wrap(err)
 	}
+
 	if err := json.Unmarshal(buf.Bytes(), target); err != nil {
 		return ErrBadRequest.Wrap(err)
 	}
+
 	return nil
+}
+
+func readJSONBody(buf *bytes.Buffer, body io.Reader, size int64) error {
+	if size > maxPooledJSONBuf && size <= maxPresizedJSONBody {
+		for buf.Len() < jsonBodyProbeSize {
+			buf.Grow(bytes.MinRead)
+			tail := buf.AvailableBuffer()[:min(buf.Available(), jsonBodyProbeSize-buf.Len())]
+			n, err := body.Read(tail)
+			buf.Write(tail[:n])
+			if err == io.EOF {
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+		}
+
+		buf.Grow(int(size) - buf.Len() + bytes.MinRead)
+	}
+
+	_, err := buf.ReadFrom(body)
+	return err
 }

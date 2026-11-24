@@ -1138,9 +1138,9 @@ func (r *DefaultRouter) Route(c *Context) HandlerFunc {
 	}
 
 	if currentNode == nil && previousBestMatchNode == nil {
-		pathValues = pathValues[0:0]
-
-		c.InitializeRoute(notFoundRouteInfo, &pathValues)
+		*c.pathValues = pathValues[:0]
+		c.route = notFoundRouteInfo
+		c.path = notFoundRouteInfo.Path
 		return r.notFoundHandler // nothing matched at all with given path
 	}
 
@@ -1197,8 +1197,9 @@ func (r *DefaultRouter) Route(c *Context) HandlerFunc {
 		}
 	}
 
-	c.InitializeRoute(rInfo, &pathValues)
-	c.SetPath(rPath)          // after InitializeRoute so we would not accidentally change `notFoundRouteInfo` or `methodNotAllowedRouteInfo` Path
+	*c.pathValues = pathValues
+	c.route = rInfo
+	c.path = rPath
 	c.request.Pattern = rPath // help standard library based middlewares. This is a deliberate choice not to call `request.SetPathValue` for params.
 	return rHandler
 }

@@ -391,103 +391,108 @@ func ParseValue[T any](value string, opts ...any) (T, error) {
 //   - time.Duration
 //   - time.Time use echo.TimeOpts or echo.TimeLayout to set time parsing configuration
 func ParseValueOr[T any](value string, defaultValue T, opts ...any) (T, error) {
-	if len(value) == 0 {
+	if value == "" {
 		return defaultValue, nil
 	}
-	var tmp T
-	if err := bindValue(value, &tmp, opts...); err != nil {
-		var zero T
-		return zero, fmt.Errorf("failed to parse value, err: %w", err)
-	}
-	return tmp, nil
-}
 
-func bindValue(value string, dest any, opts ...any) error {
-	// NOTE: if this function is ever made public the dest should be checked for nil
-	// values when dealing with interfaces
-	if len(opts) > 0 {
-		if _, isTime := dest.(*time.Time); !isTime {
-			return fmt.Errorf("options are only supported for time.Time, got %T", dest)
+	if len(opts) == 0 {
+		var scalar T
+		if handled, err := bindBuiltinValue(value, &scalar); handled {
+			if err != nil {
+				return scalar, fmt.Errorf("failed to parse value, err: %w", err)
+			}
+
+			return scalar, nil
 		}
 	}
 
+	var tmp T
+	if err := bindCustomValue(value, &tmp, opts...); err != nil {
+		var zero T
+		return zero, fmt.Errorf("failed to parse value, err: %w", err)
+	}
+
+	return tmp, nil
+}
+
+func bindBuiltinValue(value string, dest any) (bool, error) {
 	switch d := dest.(type) {
 	case *bool:
 		n, err := strconv.ParseBool(value)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = n
 	case *float32:
 		n, err := strconv.ParseFloat(value, 32)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = float32(n)
 	case *float64:
 		n, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = n
 	case *int:
 		n, err := strconv.ParseInt(value, 10, 0)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = int(n)
 	case *int8:
 		n, err := strconv.ParseInt(value, 10, 8)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = int8(n)
 	case *int16:
 		n, err := strconv.ParseInt(value, 10, 16)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = int16(n)
 	case *int32:
 		n, err := strconv.ParseInt(value, 10, 32)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = int32(n)
 	case *int64:
 		n, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = n
 	case *uint:
 		n, err := strconv.ParseUint(value, 10, 0)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = uint(n)
 	case *uint8:
 		n, err := strconv.ParseUint(value, 10, 8)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = uint8(n)
 	case *uint16:
 		n, err := strconv.ParseUint(value, 10, 16)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = uint16(n)
 	case *uint32:
 		n, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = uint32(n)
 	case *uint64:
 		n, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = n
 	case *string:
@@ -495,9 +500,24 @@ func bindValue(value string, dest any, opts ...any) error {
 	case *time.Duration:
 		t, err := time.ParseDuration(value)
 		if err != nil {
-			return err
+			return true, err
 		}
 		*d = t
+	default:
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func bindCustomValue(value string, dest any, opts ...any) error {
+	if len(opts) > 0 {
+		if _, isTime := dest.(*time.Time); !isTime {
+			return fmt.Errorf("options are only supported for time.Time, got %T", dest)
+		}
+	}
+
+	switch d := dest.(type) {
 	case *time.Time:
 		to := TimeOpts{
 			Layout:          TimeLayout(time.RFC3339Nano),

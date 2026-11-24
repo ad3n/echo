@@ -49,16 +49,84 @@ type bindMultipleUnmarshaler interface {
 	UnmarshalParams(params []string) error
 }
 
-// BindPathValues binds path parameter values to bindable object
 func BindPathValues(c *Context, target any) error {
+	pathValues := c.PathValues()
+	if len(pathValues) == 0 || target == nil {
+		return nil
+	}
+
+	if len(pathValues) <= 4 {
+		if handled, err := bindScalarPathValues(target, pathValues); handled {
+			if err != nil {
+				return ErrBadRequest.Wrap(err)
+			}
+
+			return nil
+		}
+	}
+
 	params := map[string][]string{}
-	for _, param := range c.PathValues() {
+	for _, param := range pathValues {
 		params[param.Name] = []string{param.Value}
 	}
+
 	if err := bindData(target, params, "param", nil); err != nil {
 		return ErrBadRequest.Wrap(err)
 	}
+
 	return nil
+}
+
+func bindScalarPathValues(target any, pathValues PathValues) (bool, error) {
+	destination := reflect.ValueOf(target)
+	if destination.Kind() != reflect.Pointer || destination.IsNil() {
+		return false, nil
+	}
+
+	destination = destination.Elem()
+	if destination.Kind() != reflect.Struct {
+		return false, nil
+	}
+
+	meta := bindMetaFor(destination.Type())
+	if !meta.scalarPath {
+		return false, nil
+	}
+
+	for i, param := range pathValues {
+		for _, previous := range pathValues[:i] {
+			if previous.Name != param.Name && strings.EqualFold(previous.Name, param.Name) {
+				return false, nil
+			}
+		}
+	}
+
+	for i := range meta.fields {
+		field := &meta.fields[i]
+		if field.param == "" {
+			continue
+		}
+
+		value := destination.Field(field.index)
+		if !value.CanSet() {
+			continue
+		}
+
+		for j := len(pathValues) - 1; j >= 0; j-- {
+			param := pathValues[j]
+			if param.Name != field.param && !strings.EqualFold(param.Name, field.param) {
+				continue
+			}
+
+			if err := setScalarField(field.fieldKind, param.Value, value); err != nil {
+				return true, fmt.Errorf("%s: %w", field.param, err)
+			}
+
+			break
+		}
+	}
+
+	return true, nil
 }
 
 // BindQueryParams binds query params to bindable object
@@ -192,7 +260,8 @@ func (m *bindFieldMeta) tagName(tag string) string {
 
 // bindStructMeta is the cached field metadata for a whole struct type, in declaration order.
 type bindStructMeta struct {
-	fields []bindFieldMeta
+	fields     []bindFieldMeta
+	scalarPath bool
 }
 
 // bindStructCache memoizes bindStructMeta keyed by struct reflect.Type. Concurrent double-computation is
@@ -204,11 +273,11 @@ func bindMetaFor(typ reflect.Type) *bindStructMeta {
 		return cached.(*bindStructMeta)
 	}
 	n := typ.NumField()
-	meta := &bindStructMeta{fields: make([]bindFieldMeta, n)}
+	meta := &bindStructMeta{fields: make([]bindFieldMeta, n), scalarPath: true}
 	for i := range n {
 		f := typ.Field(i)
 		kind := f.Type.Kind()
-		meta.fields[i] = bindFieldMeta{
+		field := bindFieldMeta{
 			index:       i,
 			plainScalar: f.Type.PkgPath() == "" && (kind == reflect.String || kind >= reflect.Bool && kind <= reflect.Float64),
 			anonymous:   f.Anonymous,
@@ -219,7 +288,12 @@ func bindMetaFor(typ reflect.Type) *bindStructMeta {
 			form:        f.Tag.Get("form"),
 			header:      f.Tag.Get("header"),
 		}
+		meta.fields[i] = field
+		if field.anonymous || kind == reflect.Struct || field.param != "" && !field.plainScalar {
+			meta.scalarPath = false
+		}
 	}
+
 	bindStructCache.Store(typ, meta)
 	return meta
 }
