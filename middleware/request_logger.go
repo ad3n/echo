@@ -359,10 +359,15 @@ func (config RequestLoggerConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			}
 			if logQueryParams {
 				queryParams := c.QueryParams()
-				v.QueryParams = map[string][]string{}
-				for _, param := range config.LogQueryParams {
-					if values, ok := queryParams[param]; ok {
-						v.QueryParams[param] = values
+				switch {
+				case len(config.LogQueryParams) > 8 && len(queryParams) > 8:
+					v.QueryParams = selectWideRequestLogQuery(queryParams, config.LogQueryParams)
+				default:
+					v.QueryParams = map[string][]string{}
+					for _, param := range config.LogQueryParams {
+						if values, ok := queryParams[param]; ok {
+							v.QueryParams[param] = values
+						}
 					}
 				}
 			}
@@ -389,6 +394,44 @@ func (config RequestLoggerConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			return err
 		}
 	}, nil
+}
+
+func selectWideRequestLogQuery(source map[string][]string, keys []string) map[string][]string {
+	var first [8]int
+	count := 0
+	for i, key := range keys {
+		values, ok := source[key]
+		if !ok {
+			continue
+		}
+
+		if count < len(first) {
+			first[count] = i
+			count++
+			continue
+		}
+
+		selected := make(map[string][]string, min(len(source), len(keys), 32))
+		for _, prior := range first {
+			selected[keys[prior]] = source[keys[prior]]
+		}
+
+		selected[key] = values
+		for _, remaining := range keys[i+1:] {
+			if values, ok := source[remaining]; ok {
+				selected[remaining] = values
+			}
+		}
+
+		return selected
+	}
+
+	selected := make(map[string][]string, count)
+	for _, i := range first[:count] {
+		selected[keys[i]] = source[keys[i]]
+	}
+
+	return selected
 }
 
 // RequestLogger creates Request Logger middleware with Echo default settings that uses Context.Logger() as logger.
